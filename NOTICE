@@ -1,0 +1,11 @@
+Gemma-4-26B-A4B NVFP4 (untied lm_head) — derivative checkpoint
+Copyright 2026 the author
+
+This is a derivative of nvidia/Gemma-4-26B-A4B-NVFP4, the NVIDIA
+ModelOpt NVFP4 quantization of Google's gemma-4-26B-A4B-it.
+The modification published here: tie_word_embeddings is disabled and a
+separately NVFP4-quantized lm_head.weight is added.
+
+The base license is Apache License 2.0; the license text is carried
+verbatim in LICENSE. Use of the model itself remains subject to the
+Gemma Terms of Use and its prohibited-use policy.

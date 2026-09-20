@@ -167,6 +167,28 @@ DOCKER_BUILDKIT=1 docker build . \
 - 32GB GPU：从 `--max-model-len 8192`、`--max-num-seqs 8` 起步
 - 未在 Spark 以外的 GPU 上实测
 
+## 下一步课题
+
+### 全层 4bit ＋ 日语校准（试过，未采用）
+
+本配方的权重将 attention 与共享 MLP 保留为 BF16。我们也实测了把这部分
+一并转为 NVFP4、并用 365 条日语校准数据与带误差补偿的量化（GPTQ 系）
+重新制作的版本。
+
+| 指标 | 本配方 | 全层 4bit 版 |
+|---|---:|---:|
+| 单发 tok/s | 109.7 | **122.3（+11.5%）** |
+| 并行 C=32 合计 tok/s | 1,080.8 | **586.5（约一半）** |
+| JNLI 的配对差 | −1.23 / −1.48 pt | −1.64 pt |
+| 5 项指标的点估计 | 均在 −2pt 以内 | 均在 −2pt 以内 |
+
+**质量得以保持，但并行下降很大，因此未予采用。** 单发更快，日语生成也不会
+崩坏。只有并行慢的原因尚未查明（有一种看法是单发受带宽律速、并行进入计算
+律速，但未经验证）。
+
+若能用同样的测量方式解释并规避并行的下降，就有可能在保住单发 +11.5% 的同时
+也拿到并行的吞吐。
+
 ## Tools used
 
 Tools used — Claude Fable 5.1, GPT-6 (Astra), GLM-5.3-Flash. All code in this repository was written for this project.

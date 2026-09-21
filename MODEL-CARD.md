@@ -159,6 +159,54 @@ vllm serve /checkpoint --served-model-name gemma4 --host 0.0.0.0 --port 8890 --t
 
 To be finalized at release time.
 
+### Keeping attention in FP8 (if quality matters most)
+
+A variant with attention (QKVO) left in FP8 and the shared MLP, routed
+experts and lm_head in NVFP4, calibrated on the same 365 Japanese
+samples: **117.5 tok/s** single-stream (+7.1%), JNLI paired delta
+**-0.74 pt** on the validation set and **-1.20 pt** on the held-out set
+— both better than this recipe. Aggregate throughput at 32 concurrent
+is about half, so it is not the published configuration; batch work
+needs the throughput. Weights are not published. Raising attention
+precision recovers quality and costs a little single-stream speed
+(against the all-4bit variant: JNLI -1.64 → -0.74 pt, 122.3 → 117.5
+tok/s).
+
+
+## Why lm_head
+
+A decode step took 34.775 ms, so we profiled it with the torch profiler.
+
+| kernel | ms/step | share |
+|---|---:|---:|
+| cuBLAS BF16 GEMV | 28.64 | 82.5% |
+| MoE (routing + expert GEMM) | 4.75 | 13.6% |
+| attention (Triton) | 0.643 | 1.85% |
+
+The top 15 kernels account for 99.1% of the step. Most of the time goes
+into reading linear layers that are still BF16.
+
+NVIDIA's official NVFP4 quantizes the routed experts only; its
+`config.json` lists 93 entries under `quantization_config.ignore`
+(`mlp*` / `router*` / `self_attn*` for all 30 layers, plus `lm_head` and
+the vision stack). Summing the safetensors headers, 5.35 GB of BF16 is
+read per token: QKVO projections 2.51 GB, lm_head (tied embedding)
+1.48 GB, shared-expert dense MLP 1.34 GB, router and norms 0.02 GB.
+
+5.35 GB / 28.64 ms is 186.8 GB/s effective, 68.4% of the GB10's
+273 GB/s — the volume read, not kernel efficiency.
+
+Of those, lm_head can be quantized on its own by untying it from the
+embedding. At the same γ8 that takes 100.5 → **109.7 tok/s** (+9.2%);
+with speculation off, 28.8 → **35.8 tok/s** (+24.3%).
+
+What did not help: forcing the MoE kernel to MARLIN left non-speculative
+single-stream unchanged; adding `--quantization fp8` on top of the NVFP4
+checkpoint is ignored (the startup log still reads
+`quantization=modelopt_fp4`); the vision tower (0.59 GB) is not read
+during text-only decode, and `--language-model-only` did not change the
+speed.
+
 ## License
 
 Apache License 2.0 — see `LICENSE`. This is a derivative checkpoint;

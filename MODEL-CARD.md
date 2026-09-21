@@ -51,10 +51,15 @@ repetitions, temperature 0, headline tok/s including TTFT):
 
 | single request (C=1) | tok/s |
 |---|---:|
+| official NVFP4 as-is, speculation off | 28.8 |
+| official NVFP4 as-is, γ8 | 100.5 |
 | A+γ8 (this recipe) | **109.7** |
 | same, speculation off | 35.8 |
 
-Speculative decoding speedup: **2.91×**. Aggregate throughput under
+Speculative decoding speedup: **3.06×** (109.7 / 35.8); on the
+unmodified official checkpoint it is 28.8 → 100.5, **3.49×**.
+Quantising lm_head adds 100.5 → 109.7, **+9.2%** (with speculation
+off, 28.8 → 35.8, +24.3%). Aggregate throughput under
 steady load (60 s per level):
 
 | concurrency | tok/s |

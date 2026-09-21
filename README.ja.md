@@ -175,6 +175,46 @@ vllm serve /checkpoint --served-model-name gemma4 --host 0.0.0.0 --port 8890 --t
 - この API には認証がない。サーバは全インターフェースで応答するので、
   信頼できるネットワークで動かすか localhost に留める。
 
+## なぜ lm_head なのか
+
+decode が 1 ステップ 34.775 ms かかっていたので、torch profiler で内訳を取った。
+
+| カーネル | ms/step | 割合 |
+|---|---:|---:|
+| cuBLAS BF16 GEMV | 28.64 | 82.5% |
+| MoE（ルーティング＋expert GEMM） | 4.75 | 13.6% |
+| attention（Triton） | 0.643 | 1.85% |
+
+上位 15 カーネルで 99.1% を説明できる。時間の大半は BF16 のまま残っている
+線形層の読み出しに使われていた。
+
+NVIDIA 公式の NVFP4 は routed expert だけを量子化しており、config.json の
+`quantization_config.ignore` に 93 エントリ（全 30 層の `mlp*` / `router*` /
+`self_attn*` と `lm_head`、vision 系）が並ぶ。safetensors のヘッダを集計すると、
+毎トークン読む BF16 は 5.35 GB:
+
+| 部位 | GB |
+|---|---:|
+| QKVO 射影 | 2.51 |
+| lm_head（tied embedding） | 1.48 |
+| shared-expert dense MLP | 1.34 |
+| router・norm | 0.02 |
+
+5.35 GB ÷ 28.64 ms = 実効 186.8 GB/s。GB10 の 273 GB/s に対して 68.4% で、
+カーネルの効率ではなく読む量が効いている。
+
+このうち lm_head は `tie_word_embeddings` を外して別テンソルにすれば、
+単独で NVFP4 にできる。結果は同じ γ8 で 100.5 → **109.7 tok/s**（+9.2%）、
+投機なし同士で 28.8 → **35.8 tok/s**（+24.3%）。
+
+効かなかった打ち手も記録しておく。
+
+- MoE カーネルを MARLIN に強制しても、非投機の単発は変わらなかった
+- NVFP4 チェックポイントに `--quantization fp8` を重ねても、起動ログは
+  `quantization=modelopt_fp4` のままで指定は無視される
+- vision tower（0.59 GB）は text-only の decode では読まれない。
+  `--language-model-only` を付けても速度は変わらなかった
+
 ## 次の課題
 
 ### 全層 4bit ＋ 日本語校正（試した結果、採用せず）
@@ -192,6 +232,28 @@ vllm serve /checkpoint --served-model-name gemma4 --host 0.0.0.0 --port 8890 --t
 
 **質は保てたが並列で大きく落ちたため採用しなかった。** 単発では速く、日本語の
 生成も破綻しない。
+
+### attention を FP8 にした版（質を最優先するなら）
+
+全層 4bit で JNLI がやや落ちたので、attention（QKVO）だけ FP8 に戻し、
+共有 MLP・routed expert・lm_head を NVFP4 にした版も作った。校正データは同じ
+日本語 365 件。
+
+| 指標 | 本レシピ | attention FP8 版 |
+|---|---:|---:|
+| 単発 tok/s | 109.7 | **117.5（+7.1%）** |
+| 並列 C=32 合計 tok/s | 1,080.8 | 約半分 |
+| JNLI のペア差（valid） | −1.23 / −1.48 pt | **−0.74 pt** |
+| JNLI のペア差（独立セット） | −1.60 pt | **−1.20 pt** |
+| 5 指標の点推定 | すべて −2pt 以内 | すべて −2pt 以内 |
+
+**単発も質も本レシピを上回るが、並列が約半分なので採用していない。** バッチ用途では
+合計スループットが効くため。単発しか使わず、質を最優先する場合はこちらの方が良い
+可能性がある。重みは公開していない（作り方は本文の手順と同じで、attention だけ
+FP8 target にする）。
+
+attention を高い精度に戻すと質が戻り単発がわずかに落ちる、というトレードオフは
+全層 4bit 版との比較にも現れている（JNLI −1.64 → −0.74 pt、単発 122.3 → 117.5）。
 
 ## ライセンス
 

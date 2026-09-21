@@ -1,5 +1,9 @@
 [English](README.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [中文](README.zh.md)
 
+单台 DGX Spark 运行 Gemma 4 26B A4B。
+官方 NVFP4 原样: 单发 28.8 tok/s。
+本配方: 单发 109.7 tok/s,32 并发合计 1,080.8 tok/s。
+
 # gemma4-spark — 在 NVIDIA DGX Spark 上运行 Gemma 4 26B A4B NVFP4(lm_head 分离版)
 
 ## 发布内容
@@ -31,14 +35,15 @@
 - 一台 DGX Spark(GB10・统一内存 128 GB),或 Blackwell 世代 GPU
   (NVFP4 运算需要该世代)
 - 磁盘约 50 GB(权重 19.2 GB + 草稿 0.8 GB + 容器约 30 GB)
-- 容器镜像 — 构建 vLLM 上游的 `docker/Dockerfile`
-  (命令与参数见 `BRING-UP.md` §2)
+- 容器镜像 — `docker pull tenhkspark/vllm-gb10:v0.28.0-sm121`
+  (压缩后 9.4 GB)。若自行构建,命令与参数见 `BRING-UP.md` §2
 
 ## 快速开始
 
-1. **获取权重**。分发格式将在发布时确定。校验用 manifest 为
+1. **获取权重**(`huggingface-cli download tenhkspark/gemma-4-26B-A4B-NVFP4-lmhead --local-dir ./gemma4-lmhead`)。校验用 manifest 为
    13 个文件 / 19,240,726,248 B / md5 `571932348835310ce77799f70a4e9814`。
-2. **准备容器**(`BRING-UP.md` §2)。
+2. **获取容器**(`docker pull tenhkspark/vllm-gb10:v0.28.0-sm121`)。
+   自行构建的步骤见 `BRING-UP.md` §2。
 3. **`./serve.sh up`** — 若为 32 GB 级独立显卡则用
    `./serve.sh up --env gemma4.small.env`。
 
@@ -52,10 +57,14 @@
 
 | 单发(C=1) | tok/s |
 |---|---:|
+| 官方 NVFP4 原样・关闭投机 | 28.8 |
+| 官方 NVFP4 原样・γ8 | 100.5 |
 | A+γ8(本配方) | **109.7** |
 | 同配置・关闭投机(对照) | 35.8 |
 
-投机解码增速比: **2.91 倍**。稳定负载(各并发度 60 秒)下的合计:
+投机解码增速比: **3.06 倍**(109.7 / 35.8)。官方原样也有
+28.8 → 100.5 的 **3.49 倍**。把 lm_head 改为 NVFP4 的效果是
+100.5 → 109.7 的 **+9.2%**(同为关闭投机时 28.8 → 35.8 的 +24.3%)。稳定负载(各并发度 60 秒)下的合计:
 
 | 并发数 | 合计 tok/s |
 |---:|---:|

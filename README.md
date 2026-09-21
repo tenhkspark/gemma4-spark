@@ -94,9 +94,9 @@ against 24/30 for this recipe), so it is not caused by quantisation.
 
 Measure with **prefix caching off**: confirm `enable_prefix_caching=False` in
 the startup log first. With it on, resending the same prompts lets prefill come
-back from cache. At 2,048 in / 32 out, a second pass over the same prompts ran
-more than 20x faster — that figure is not real throughput, so it is not in the
-tables above.
+back from cache; a second pass over the same prompts runs far faster than the
+model really is. Those inflated figures are not in the tables above.
+See `SERVING-NOTES-2026-09-20.ja.md` for the measured effect.
 
 ### Long input
 

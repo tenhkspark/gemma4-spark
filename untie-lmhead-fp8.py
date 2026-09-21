@@ -20,10 +20,10 @@ Two modes, chosen from the checkpoint's quantization framework:
         from hf_quant_config.json quantization.exclude_modules and from
         config.json quantization_config.ignore so the layer is quantized.
 
-Runs inside the wabi/vllm-gb10 image (needs torch + safetensors):
+Runs inside the tenhkspark/vllm-gb10 image (needs torch + safetensors):
 
   docker run --rm -v "$HOME/models":/models \
-    -v <this dir>:/tools:ro --entrypoint python3 wabi/vllm-gb10:v0.28.0-sm121 \
+    -v <this dir>:/tools:ro --entrypoint python3 tenhkspark/vllm-gb10:v0.28.0-sm121 \
     /tools/untie-lmhead-fp8.py /models/<src> /models/<dst>
 
 Layout produced:

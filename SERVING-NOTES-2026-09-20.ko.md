@@ -4,7 +4,7 @@
 
 > 수치는 모두 같은 날의 실측에서 비롯된다. 구 측정계의 값(prefix cache 유효 상태에서의 동일 프롬프트 재전송, 소수 사례의 최댓값을 대푯값으로 한 것)은 철회 완료이며, 본문에는 포함하지 않는다.
 
-환경: DGX Spark 1대(GB10 / sm_121 / 통합 메모리 128GB), vLLM 0.28.0을 업스트림 Dockerfile에서 자체 빌드(`wabi/vllm-gb10:v0.28.0-sm121`), TP=1. 측정은 모두 노드 위(localhost)에서 실행.
+환경: DGX Spark 1대(GB10 / sm_121 / 통합 메모리 128GB), vLLM 0.28.0을 업스트림 Dockerfile에서 빌드한 이미지 `tenhkspark/vllm-gb10:v0.28.0-sm121`(`docker pull`로 받을 수 있다, 압축 9.4 GB / 전개 약 30 GB), TP=1. 측정은 모두 노드 위(localhost)에서 실행.
 
 ## 구성(A+γ8)
 
@@ -52,10 +52,16 @@ util을 올릴수록 KV 풀은 늘지만, 그만큼 OS 측이 깎인다. 0.9로 
 
 | 단발(C=1) | 실무형・자연 EOS | 짧은 출력 조건(출력 32 tok) |
 |---|---:|---:|
+| 공식 NVFP4 그대로・투기 off | 28.8 tok/s | 28.0 tok/s |
+| 공식 NVFP4 그대로・γ8 | 100.5 tok/s | 미측정 |
 | A+γ8 | **109.7 tok/s** | 미측정 |
 | 투기 off 대조 | 35.8 tok/s | 미측정 |
 
-투기 디코딩에 의한 증속률: **2.91배**.
+투기 디코딩에 의한 증속률: **3.06배**(109.7 / 35.8). 공식 체크포인트를
+그대로 돌린 경우에도 28.8 → 100.5의 **3.49배**. lm_head를 NVFP4로
+한 효과는 같은 γ8끼리 100.5 → 109.7의 **+9.2%**, 투기 없음끼리 
+28.8 → 35.8의 **+24.3%**. 즉 이 구성의 속도는 대부분 투기 디코딩에서
+비롯되고, lm_head 양자화는 그 위에 1할을 얹는 위치다.
 
 병렬은 정상 부하(완료분을 즉시 보충해 동시 실행 수를 유지)로 각 병렬도 60초. 동일 조건의 2회 실행에서 일치한 값.
 
@@ -130,7 +136,7 @@ JGLUE valid + JMMLU. 각 n=2,434(JCommonsenseQA는 전체 건수의 1,119). 동�
 
 확정값은 모두 다음 절차로 취득했다.
 
-- **prefix caching 무효**: 기동 로그에서 `enable_prefix_caching=False`를 원문으로 확인하고 나서 측정. 유효한 채로 동일 계열을 재전송하면 prefill이 캐시에서 돌아와 실력보다 크게 보인다
+- **prefix caching 무효**: 기동 로그에서 `enable_prefix_caching=False`를 원문으로 확인하고 나서 측정. 유효한 채로 동일 계열을 재전송하면 prefill이 캐시에서 돌아와 실력보다 크게 보인다. 입력 2,048・출력 32 조건에서는 동일 프롬프트를 재전송한 2회차가 20배 이상으로 뛰었다(이 값은 실력이 아니므로 본문의 표에는 싣지 않았다)
 - **노드 위 실행**: 벤치는 측정 대상 노드 위에서 `http://127.0.0.1:8890`(localhost)를 호출한다
 - **실무형 프롬프트**: 각 문서 2반복・온도 0・자연 EOS. 대푯값은 3유형 중앙값의 평균(최댓값은 쓰지 않는다)
 - **정상 부하**: 병렬은 완료분을 즉시 보충해 동시 실행 수를 유지하는 방식으로, 각 병렬도 60초
@@ -143,7 +149,7 @@ JGLUE valid + JMMLU. 각 n=2,434(JCommonsenseQA는 전체 건수의 1,119). 동�
 
 ```bash
 DOCKER_BUILDKIT=1 docker build . \
-    --tag wabi/vllm-gb10:v0.28.0-sm121 \
+    --tag tenhkspark/vllm-gb10:v0.28.0-sm121 \
     --build-arg BUILD_BASE_IMAGE=pytorch/manylinuxaarch64-builder:cuda13.0 \
     --build-arg torch_cuda_arch_list=12.0 \
     --build-arg max_jobs=8 --build-arg nvcc_threads=2
@@ -151,7 +157,7 @@ DOCKER_BUILDKIT=1 docker build . \
 
 - `torch_cuda_arch_list`는 **12.0**(12.1이 아니다). GB10은 sm_121이지만 12.0으로 동작한다
 - 검증: `--entrypoint python3`으로 기동해, `torch.cuda.get_device_capability()`가 `(12, 1)`을 반환하는 것
-- 빌드 소요 시간은 실측 미기록. 배포 형식은 공개 시에 확정
+- 빌드 소요 시간은 실측 미기록. 가중치는 `huggingface-cli download tenhkspark/gemma-4-26B-A4B-NVFP4-lmhead`, 컨테이너는 `docker pull tenhkspark/vllm-gb10:v0.28.0-sm121`으로 받을 수 있다
 
 ## 크기
 

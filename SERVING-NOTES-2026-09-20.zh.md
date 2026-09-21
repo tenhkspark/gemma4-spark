@@ -4,7 +4,7 @@
 
 > 所有数值均来自当日实测。旧测量体系的数值（启用 prefix cache 后重发同一提示词、以少量样本的最大值充当代表值的做法）已撤回，本文不再收录。
 
-环境：1 台 DGX Spark（GB10 / sm_121 / 统一内存 128GB），vLLM 0.28.0 使用上游 Dockerfile 自行构建（`wabi/vllm-gb10:v0.28.0-sm121`），TP=1。所有测量均在节点上（localhost）执行。
+环境：1 台 DGX Spark（GB10 / sm_121 / 统一内存 128GB），vLLM 0.28.0 为使用上游 Dockerfile 构建的镜像 `tenhkspark/vllm-gb10:v0.28.0-sm121`（可用 `docker pull` 获取，压缩 9.4 GB / 展开约 30 GB），TP=1。所有测量均在节点上（localhost）执行。
 
 ## 配置（A+γ8）
 
@@ -52,10 +52,16 @@ util 调得越高 KV 池越大，但 OS 侧会相应被压缩。以 0.9 启动�
 
 | 单发（C=1） | 实务型、自然 EOS | 短输出档（输出 32 tok） |
 |---|---:|---:|
+| 官方 NVFP4 原样・投机 off | 28.8 tok/s | 28.0 tok/s |
+| 官方 NVFP4 原样・γ8 | 100.5 tok/s | 未测 |
 | A+γ8 | **109.7 tok/s** | 未测 |
 | 投机 off 对照 | 35.8 tok/s | 未测 |
 
-投机解码带来的加速比：**2.91 倍**。
+投机解码带来的加速比：**3.06 倍**（109.7 / 35.8）。即便直接运行官方
+检查点，也有 28.8 → 100.5 的 **3.49 倍**。把 lm_head 改为 NVFP4 的
+效果，在同为 γ8 时是 100.5 → 109.7 的 **+9.2%**，在同为关闭投机时是
+28.8 → 35.8 的 **+24.3%**。也就是说这套配置的速度大部分来自投机解码，
+lm_head 的量化是在其之上再加一成。
 
 并发采用稳态负载（完成即补发以维持并发数），每个并发度 60 秒。数值为同条件两次运行一致的结果。
 
@@ -130,7 +136,7 @@ JGLUE valid + JMMLU。各 n=2,434（JCommonsenseQA 为全量 1,119）。以同�
 
 所有定稿数值均按以下步骤取得。
 
-- **prefix caching 禁用**：在启动日志中原文确认 `enable_prefix_caching=False` 后再测量。启用状态下重发同一序列会使 prefill 命中缓存返回，速度看起来高于实际能力
+- **prefix caching 禁用**：在启动日志中原文确认 `enable_prefix_caching=False` 后再测量。启用状态下重发同一序列会使 prefill 命中缓存返回，速度看起来高于实际能力。在输入 2,048、输出 32 的条件下，重发同一提示词的第 2 次跃升至 20 倍以上（该数值并非实际能力，故未收入本文的表格）
 - **节点上执行**：bench 从被测节点上请求 `http://127.0.0.1:8890`（localhost）
 - **实务型提示词**：每份文档 2 次重复、温度 0、自然 EOS。代表值取 3 种类型中位数的平均（不使用最大值）
 - **稳态负载**：并发采用完成即补发以维持并发数的方式，每个并发度 60 秒
@@ -143,7 +149,7 @@ JGLUE valid + JMMLU。各 n=2,434（JCommonsenseQA 为全量 1,119）。以同�
 
 ```bash
 DOCKER_BUILDKIT=1 docker build . \
-    --tag wabi/vllm-gb10:v0.28.0-sm121 \
+    --tag tenhkspark/vllm-gb10:v0.28.0-sm121 \
     --build-arg BUILD_BASE_IMAGE=pytorch/manylinuxaarch64-builder:cuda13.0 \
     --build-arg torch_cuda_arch_list=12.0 \
     --build-arg max_jobs=8 --build-arg nvcc_threads=2
@@ -151,7 +157,7 @@ DOCKER_BUILDKIT=1 docker build . \
 
 - `torch_cuda_arch_list` 为 **12.0**（不是 12.1）。GB10 虽是 sm_121，但 12.0 即可运行
 - 验证：以 `--entrypoint python3` 启动，确认 `torch.cuda.get_device_capability()` 返回 `(12, 1)`
-- 构建耗时未实测记录。分发形式在发布时确定
+- 构建耗时未实测记录。权重可用 `huggingface-cli download tenhkspark/gemma-4-26B-A4B-NVFP4-lmhead`、容器可用 `docker pull tenhkspark/vllm-gb10:v0.28.0-sm121` 获取
 
 ## 体积
 

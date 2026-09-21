@@ -1,5 +1,9 @@
 [English](README.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [中文](README.zh.md)
 
+DGX Spark 1대로 Gemma 4 26B A4B.
+공식 NVFP4 그대로: 단발 28.8 tok/s.
+이 레시피: 단발 109.7 tok/s, 32 병렬에서 합계 1,080.8 tok/s.
+
 # gemma4-spark — Gemma 4 26B A4B NVFP4(lm_head 분리판)를 NVIDIA DGX Spark에서
 
 ## 배포하는 것
@@ -31,14 +35,15 @@
 - DGX Spark 1대(GB10・통합 메모리 128 GB), 또는 Blackwell 세대의 GPU
   (NVFP4 연산에는 그 세대가 필요)
 - 디스크 약 50 GB(가중치 19.2 GB + 드래프트 0.8 GB + 컨테이너 약 30 GB)
-- 컨테이너 이미지 — vLLM 상류의 `docker/Dockerfile`을 빌드
-  (커맨드와 인수는 `BRING-UP.md` §2)
+- 컨테이너 이미지 — `docker pull tenhkspark/vllm-gb10:v0.28.0-sm121`
+  (압축 9.4 GB). 직접 빌드하는 경우의 커맨드와 인수는 `BRING-UP.md` §2
 
 ## 퀵스타트
 
-1. **가중치를 받는다**. 배포 형식은 공개 시에 확정. 검증용 manifest는
+1. **가중치를 받는다**(`huggingface-cli download tenhkspark/gemma-4-26B-A4B-NVFP4-lmhead --local-dir ./gemma4-lmhead`). 검증용 manifest는
    13 파일 / 19,240,726,248 B / md5 `571932348835310ce77799f70a4e9814`.
-2. **컨테이너를 준비**(`BRING-UP.md` §2).
+2. **컨테이너를 받는다**(`docker pull tenhkspark/vllm-gb10:v0.28.0-sm121`).
+   직접 빌드하는 절차는 `BRING-UP.md` §2.
 3. **`./serve.sh up`** — 32 GB급 디스크리트 GPU라면
    `./serve.sh up --env gemma4.small.env`.
 
@@ -52,10 +57,14 @@
 
 | 단발(C=1) | tok/s |
 |---|---:|
+| 공식 NVFP4 그대로・투기 없음 | 28.8 |
+| 공식 NVFP4 그대로・γ8 | 100.5 |
 | A+γ8(이 레시피) | **109.7** |
 | 같은 구성・투기 없음(대조) | 35.8 |
 
-투기 디코딩에 의한 증속률: **2.91 배**. 정상 부하(각 병렬도 60초)에서의 합계:
+투기 디코딩에 의한 증속률: **3.06 배**(109.7 / 35.8). 공식 그대로라도
+28.8 → 100.5의 **3.49 배**. lm_head를 NVFP4로 한 효과는
+100.5 → 109.7의 **+9.2%**(투기 없음끼리라면 28.8 → 35.8의 +24.3%). 정상 부하(각 병렬도 60초)에서의 합계:
 
 | 동시 실행 수 | 합계 tok/s |
 |---:|---:|

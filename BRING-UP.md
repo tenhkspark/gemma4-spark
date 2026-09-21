@@ -12,6 +12,16 @@
 
 ## 2. コンテナ
 
+### 方法 1: 公開イメージを取得する（推奨）
+
+```bash
+docker pull tenhkspark/vllm-gb10:v0.28.0-sm121
+```
+
+約 30 GB。これで `serve.sh` がそのまま動く。
+
+### 方法 2: 自分でビルドする
+
 自前 Dockerfile ではなく、vLLM 上流リポジトリの `docker/Dockerfile` をビルドしたものを使う。
 vLLM ソースツリー直下で:
 
@@ -20,7 +30,7 @@ DOCKER_BUILDKIT=1 docker build . \
   --file docker/Dockerfile \
   --target vllm-openai \
   --platform linux/arm64 \
-  --tag wabi/vllm-gb10:v0.28.0-sm121 \
+  --tag tenhkspark/vllm-gb10:v0.28.0-sm121 \
   --build-arg BUILD_BASE_IMAGE=pytorch/manylinuxaarch64-builder:cuda13.0 \
   --build-arg torch_cuda_arch_list=12.0 \
   --build-arg max_jobs=8 \
@@ -30,13 +40,13 @@ DOCKER_BUILDKIT=1 docker build . \
 
 - 要点: `torch_cuda_arch_list` は **12.0**（12.1 ではない）。GB10 は sm_121 だが 12.0 で動く。
 - ビルド所要時間は実測未記録。
-- 配布形式は公開時に確定。
+- 重みは `huggingface-cli download tenhkspark/gemma-4-26B-A4B-NVFP4-lmhead --local-dir ./gemma4-lmhead` で取得。
 
 検証（ENTRYPOINT が `vllm serve` なので `--entrypoint` で上書きする）:
 
 ```bash
 docker run --rm --runtime nvidia --gpus all \
-  --entrypoint python3 wabi/vllm-gb10:v0.28.0-sm121 -c \
+  --entrypoint python3 tenhkspark/vllm-gb10:v0.28.0-sm121 -c \
   "import vllm, torch; print(vllm.__version__, torch.__version__, torch.cuda.get_device_capability())"
 ```
 
@@ -44,7 +54,7 @@ docker run --rm --runtime nvidia --gpus all \
 
 ## 3. 重みの取得
 
-- 配布形式は公開時に確定。
+- 重みは `huggingface-cli download tenhkspark/gemma-4-26B-A4B-NVFP4-lmhead --local-dir ./gemma4-lmhead` で取得。
 - 構造は「base（NVIDIA 公式 NVFP4）に lm_head を足した差分」。MTP ドラフト（assistant モデル、約 0.8GB）は別ディレクトリ。
 - base のチェックポイントが既にあるノードへは、差分 431MB の転送と shard 2 本を base から hardlink で再構成して約 1 分。全量コピーは不要。
 - 正本の manifest: 13 ファイル / 19,240,726,248 B / md5 `571932348835310ce77799f70a4e9814`。

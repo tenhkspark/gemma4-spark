@@ -1,3 +1,5 @@
+[English](README.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [中文](README.zh.md)
+
 # gemma4-spark — Gemma 4 26B A4B NVFP4(lm_head 分離版)を NVIDIA DGX Spark で
 
 ## 何を配るか
@@ -34,7 +36,7 @@
 
 ## クイックスタート
 
-1. **重みを取得**。配布形式は公開時に確定。検証用 manifest は
+1. **重みを取得**（`huggingface-cli download tenhkspark/gemma-4-26B-A4B-NVFP4-lmhead --local-dir ./gemma4-lmhead`）。検証用 manifest は
    13 ファイル / 19,240,726,248 B / md5 `571932348835310ce77799f70a4e9814`。
 2. **コンテナを用意**(`BRING-UP.md` §2)。
 3. **`./serve.sh up`** — 32 GB 級のディスクリート GPU なら

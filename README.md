@@ -1,3 +1,5 @@
+[English](README.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [中文](README.zh.md)
+
 # gemma4-spark — Gemma 4 26B A4B NVFP4 (untied lm_head) on NVIDIA DGX Spark
 
 ## What this is
@@ -72,6 +74,18 @@ steady load (60 s per level):
 | C=1 | 84/90 | 7.59 |
 | C=8 | 82/90 | 35.90 |
 | C=32 | 80/90 | 83.40 |
+
+Per category: **finance (pulling figures out of a table) is 30/30 in every
+condition**; monitor is 30/30 at C=1 (answering "action needed" every time
+scores 15/30). db is the weakest — almost every failure is naming an extra
+table. The same tendency shows up in BF16 without quantisation (20/30 at C=1
+against 24/30 for this recipe), so it is not caused by quantisation.
+
+Measure with **prefix caching off**: confirm `enable_prefix_caching=False` in
+the startup log first. With it on, resending the same prompts lets prefill come
+back from cache. At 2,048 in / 32 out, a second pass over the same prompts ran
+more than 20x faster — that figure is not real throughput, so it is not in the
+tables above.
 
 ### Long input
 

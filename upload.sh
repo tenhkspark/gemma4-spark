@@ -100,7 +100,10 @@ if not meta_only:
     for f in sorted(os.listdir(ckpt)):
         p = os.path.join(ckpt, f)
         if os.path.isfile(p):
-            rows.append(("ckpt", f, os.path.getsize(p), p))
+            # HF では README.md がモデルカード。チェックポイント同梱の
+            # README.md（上流の説明）は捨てずに README.base.md へ退避する。
+            arc = "README.base.md" if f == "README.md" else f
+            rows.append(("ckpt", arc, os.path.getsize(p), p))
 for loc, arc in META:
     p = os.path.join(here, loc)
     if os.path.isfile(p):

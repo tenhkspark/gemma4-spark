@@ -172,6 +172,45 @@ vllm serve /checkpoint --served-model-name gemma4 --host 0.0.0.0 --port 8890 --t
 - 该 API 没有认证。服务器监听所有接口,请在可信网络中运行或
   绑定 localhost。
 
+## 为什么是 lm_head
+
+decode 每一步耗时 34.775 ms，因此用 torch profiler 取了内部分解。
+
+| 内核 | ms/step | 占比 |
+|---|---:|---:|
+| cuBLAS BF16 GEMV | 28.64 | 82.5% |
+| MoE（路由＋expert GEMM） | 4.75 | 13.6% |
+| attention（Triton） | 0.643 | 1.85% |
+
+前 15 个内核即可解释 99.1% 的时间。大部分时间仍留在 BF16 的
+线性层读取上。
+
+NVIDIA 官方的 NVFP4 只量化 routed expert，config.json 的
+`quantization_config.ignore` 中列有 93 个条目（全部 30 层的 `mlp*` / `router*` /
+`self_attn*`、`lm_head` 以及 vision 系）。统计 safetensors 的头部后，每个 token 要读取的 BF16 为 5.35 GB：
+
+| 部位 | GB |
+|---|---:|
+| QKVO 投影 | 2.51 |
+| lm_head（tied embedding） | 1.48 |
+| shared-expert dense MLP | 1.34 |
+| router、norm | 0.02 |
+
+5.35 GB ÷ 28.64 ms = 实效 186.8 GB/s。相对 GB10 的 273 GB/s 为 68.4%，
+起作用的不是内核的效率，而是读取量。
+
+其中 lm_head 只要去掉 `tie_word_embeddings`、改为独立张量，
+就可以单独转换成 NVFP4。结果是同样在 γ8 下从 100.5 提升到 **109.7 tok/s**（+9.2%），
+无投机的两者对比下从 28.8 提升到 **35.8 tok/s**（+24.3%）。
+
+也把没有奏效的手段记录下来。
+
+- 即使把 MoE 内核强制为 MARLIN，非投机的单发也没有变化
+- 即使在 NVFP4 检查点上叠加 `--quantization fp8`，启动日志仍为
+  `quantization=modelopt_fp4`，指定被忽略
+- vision tower（0.59 GB）在 text-only 的 decode 中不会被读取。
+  即使加上 `--language-model-only`，速度也没有变化
+
 ## 下一步课题
 
 ### 全层 4bit ＋ 日语校准(试过,未采用)
@@ -187,10 +226,28 @@ vllm serve /checkpoint --served-model-name gemma4 --host 0.0.0.0 --port 8890 --t
 | 5 项指标的点估计 | 均在 −2pt 以内 | 均在 −2pt 以内 |
 
 **质量得以保持,但并行下降很大,因此未予采用。** 单发更快,日语生成也不会崩坏。
-只有并行慢的原因尚未查明(有一种看法是单发受带宽律速、并行进入计算律速,但未经验证)。
 
-若能用同样的测量方式解释并规避并行的下降,就有可能在保住单发 +11.5% 的同时
-也拿到并行的吞吐。
+### 将 attention 改为 FP8 的版本（优先质量时）
+
+由于全层 4bit 下 JNLI 略有下降，我们还制作了仅将 attention（QKVO）改回 FP8、
+共享 MLP・routed expert・lm_head 改为 NVFP4 的版本。校准数据同样是
+365 条日语。
+
+| 指标 | 本配方 | attention FP8 版 |
+|---|---:|---:|
+| 单发 tok/s | 109.7 | **117.5（+7.1%）** |
+| 并行 C=32 合计 tok/s | 1,080.8 | 约一半 |
+| JNLI 的配对差（valid） | −1.23 / −1.48 pt | **−0.74 pt** |
+| JNLI 的配对差（独立集） | −1.60 pt | **−1.20 pt** |
+| 5 项指标的点估计 | 全部在 −2pt 以内 | 全部在 −2pt 以内 |
+
+**该版本在单发和质量上都超过本配方，但由于并行只有约一半，因此没有采用。** 因为在
+批量用途中，总吞吐量才是关键。如果只使用单发且优先质量，则该版本可能更好。
+权重未公开（制作方法与正文步骤相同，只需将 attention 设为
+FP8 target）。
+
+将 attention 恢复到较高精度可以恢复质量但单发略有下降，这一权衡在
+与全层 4bit 版的比较中也有体现（JNLI −1.64 → −0.74 pt、单发 122.3 → 117.5）。
 
 ## 许可证
 

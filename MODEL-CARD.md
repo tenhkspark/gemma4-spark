@@ -13,6 +13,12 @@ tags:
 
 # Gemma 4 26B A4B — NVFP4 with untied lm_head
 
+[English](README.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [中文](README.zh.md)
+
+Gemma 4 26B A4B on a single DGX Spark.
+Official NVFP4 as-is: 28.8 tok/s single-stream.
+This recipe: 109.7 tok/s single-stream, 1,080.8 tok/s aggregate at 32 concurrent.
+
 NVFP4 derivative checkpoint built on `nvidia/Gemma-4-26B-A4B-NVFP4` —
 NVIDIA's official ModelOpt NVFP4 quantization of Google's
 `gemma-4-26B-A4B-it` (BF16). The stock checkpoint ties `lm_head` to the

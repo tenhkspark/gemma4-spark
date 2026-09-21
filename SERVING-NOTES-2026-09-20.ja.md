@@ -4,7 +4,7 @@
 
 > 数値はすべて同日の実測に由来する。旧測定系の値（prefix cache 有効での同一プロンプト再送、少数例の最大値を代表値にしたもの）は撤回済みで、本稿には含めない。
 
-環境: DGX Spark 1 台（GB10 / sm_121 / 統合メモリ 128GB）、vLLM 0.28.0 を上流の Dockerfile から自前ビルド（`tenhkspark/vllm-gb10:v0.28.0-sm121`）、TP=1。測定はすべてノード上（localhost）から実行。
+環境: DGX Spark 1 台（GB10 / sm_121 / 統合メモリ 128GB）、vLLM 0.28.0 を上流の Dockerfile からビルドしたイメージ `tenhkspark/vllm-gb10:v0.28.0-sm121`（`docker pull` で取得可、圧縮 9.4 GB / 展開約 30 GB）、TP=1。測定はすべてノード上（localhost）から実行。
 
 ## 構成（A+γ8）
 
@@ -149,7 +149,7 @@ JGLUE valid + JMMLU。各 n=2,434（JCommonsenseQA は全件の 1,119）。同�
 
 ```bash
 DOCKER_BUILDKIT=1 docker build . \
-    --tag wabi/vllm-gb10:v0.28.0-sm121 \
+    --tag tenhkspark/vllm-gb10:v0.28.0-sm121 \
     --build-arg BUILD_BASE_IMAGE=pytorch/manylinuxaarch64-builder:cuda13.0 \
     --build-arg torch_cuda_arch_list=12.0 \
     --build-arg max_jobs=8 --build-arg nvcc_threads=2

@@ -31,10 +31,12 @@ DGX Spark (GB10).
 
 ## Quickstart
 
-1. **Fetch the weights.** The distribution format will be fixed at
-   release; the manifest to verify against is 13 files /
-   19,240,726,248 B / md5 `571932348835310ce77799f70a4e9814`.
-2. **Prepare the container.** Build vLLM's upstream `docker/Dockerfile`
+1. **Fetch the weights** —
+   `huggingface-cli download tenhkspark/gemma-4-26B-A4B-NVFP4-lmhead --local-dir ./gemma4-lmhead`.
+   Manifest to verify against: 13 files / 19,240,726,248 B / md5
+   `571932348835310ce77799f70a4e9814`.
+2. **Fetch the container** — `docker pull tenhkspark/vllm-gb10:v0.28.0-sm121`
+   (9.4 GB compressed). Or build vLLM's upstream `docker/Dockerfile`
    (build command and args: see `BRING-UP.md` §2).
 3. **`./serve.sh up`** — for a ~32 GB discrete GPU,
    `./serve.sh up --env gemma4.small.env` instead.

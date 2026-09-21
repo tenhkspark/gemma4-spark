@@ -35,14 +35,15 @@ DGX Spark 1 台で Gemma 4 26B A4B。
 - DGX Spark 1 台(GB10・統合メモリ 128 GB)、または Blackwell 世代の GPU
   (NVFP4 の演算はその世代が必要)
 - ディスク約 50 GB(重み 19.2 GB + ドラフト 0.8 GB + コンテナ約 30 GB)
-- コンテナイメージ — vLLM 上流の `docker/Dockerfile` をビルド
-  (コマンドと引数は `BRING-UP.md` §2)
+- コンテナイメージ — `docker pull tenhkspark/vllm-gb10:v0.28.0-sm121`
+  (圧縮 9.4 GB)。自分でビルドする場合のコマンドと引数は `BRING-UP.md` §2
 
 ## クイックスタート
 
 1. **重みを取得**（`huggingface-cli download tenhkspark/gemma-4-26B-A4B-NVFP4-lmhead --local-dir ./gemma4-lmhead`）。検証用 manifest は
    13 ファイル / 19,240,726,248 B / md5 `571932348835310ce77799f70a4e9814`。
-2. **コンテナを用意**(`BRING-UP.md` §2)。
+2. **コンテナを取得**（`docker pull tenhkspark/vllm-gb10:v0.28.0-sm121`）。
+   自前ビルドの手順は `BRING-UP.md` §2。
 3. **`./serve.sh up`** — 32 GB 級のディスクリート GPU なら
    `./serve.sh up --env gemma4.small.env`。
 

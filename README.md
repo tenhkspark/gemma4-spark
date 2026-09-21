@@ -36,15 +36,17 @@ A configuration we call **A+γ8**:
   generation GPU (NVFP4 compute needs that generation)
 - About 50 GB of disk (weights 19.2 GB + draft 0.8 GB + container
   image ~30 GB)
-- The container image — build vLLM's upstream `docker/Dockerfile`
-  (command and args: `BRING-UP.md` §2)
+- The container image — `docker pull tenhkspark/vllm-gb10:v0.28.0-sm121`
+  (9.4 GB compressed). To build it yourself: `BRING-UP.md` §2
 
 ## Quickstart
 
-1. **Fetch the weights.** The distribution format will be fixed at
-   release; the manifest is 13 files / 19,240,726,248 B / md5
+1. **Fetch the weights** —
+   `huggingface-cli download tenhkspark/gemma-4-26B-A4B-NVFP4-lmhead --local-dir ./gemma4-lmhead`.
+   Manifest: 13 files / 19,240,726,248 B / md5
    `571932348835310ce77799f70a4e9814`.
-2. **Prepare the container** per `BRING-UP.md` §2.
+2. **Fetch the container** — `docker pull tenhkspark/vllm-gb10:v0.28.0-sm121`.
+   To build it yourself instead, see `BRING-UP.md` §2.
 3. **`./serve.sh up`** — on a ~32 GB discrete GPU,
    `./serve.sh up --env gemma4.small.env`.
 

@@ -1,3 +1,5 @@
+[English](README.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [中文](README.zh.md)
+
 # gemma4-spark — 在 NVIDIA DGX Spark 上运行 Gemma 4 26B A4B NVFP4(lm_head 分离版)
 
 ## 发布内容

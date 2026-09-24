@@ -36,19 +36,19 @@ util을 올릴수록 KV 풀은 늘지만, 그만큼 OS 측이 깎인다. 0.9로 
 | 0.7 | 1,011,401 | 약 30.9개 | 27 GB |
 | 0.9 | — | — | 수 GB. 함께 돌던 프로세스가 죽었다 |
 
-기동 로그에서 확인하는 5점(원문으로 갖춰진 후에 측정・이용한다):
+기동 로그와 가중치 설정에서 확인하는 5점(원문으로 갖춰진 후에 측정・이용한다):
 
 1. `enable_prefix_caching=False`
 2. `num_speculative_tokens=8`(γ=8의 MTP 투기)
 3. `language_model_only=True`
 4. `quantization=modelopt_fp4`와 `FlashInferCutlassNvFp4` 커널의 선택
-5. lm_head가 양자화 대상으로 유지되어 있는 것
+5. 가중치의 `config.json`에서 `lm_head`가 `quantization_config.ignore` 목록에서 빠져 있는 것
 
 서버는 `--host 0.0.0.0`으로 뜬다(인증 없음). 신뢰할 수 있는 네트워크 안에서 쓰거나 127.0.0.1에 머물게 한다.
 
 ## 속도
 
-실무형 프롬프트(일본어 가공 업무 문서 3유형: JSON 추출・재무 템플릿 빈칸 채우기・감시 로그 요약) 30문서 × 2반복, 온도 0, TTFT 포함의 헤드라인 속도(생성 토큰 수 ÷ 요청의 전체 소요 시간), 노드 위에서 실행.
+실무형 프롬프트(일본어 가상 업무 문서 3유형: JSON 추출・재무 템플릿 빈칸 채우기・감시 로그 요약) 30문서 × 2반복, 온도 0, TTFT 포함의 헤드라인 속도(생성 토큰 수 ÷ 요청의 전체 소요 시간), 노드 위에서 실행.
 
 | 단발(C=1) | 실무형・자연 EOS | 짧은 출력 조건(출력 32 tok) |
 |---|---:|---:|
@@ -149,6 +149,9 @@ JGLUE valid + JMMLU. 각 n=2,434(JCommonsenseQA는 전체 건수의 1,119). 동�
 
 ```bash
 DOCKER_BUILDKIT=1 docker build . \
+    --file docker/Dockerfile \
+    --target vllm-openai \
+    --platform linux/arm64 \
     --tag tenhkspark/vllm-gb10:v0.28.0-sm121 \
     --build-arg BUILD_BASE_IMAGE=pytorch/manylinuxaarch64-builder:cuda13.0 \
     --build-arg torch_cuda_arch_list=12.0 \

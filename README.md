@@ -41,14 +41,22 @@ A configuration we call **A+γ8**:
 
 ## Quickstart
 
-1. **Fetch the weights** —
-   `huggingface-cli download tenhkspark/gemma-4-26B-A4B-NVFP4-lmhead --local-dir ./gemma4-lmhead`.
-   Manifest: 13 files / 19,240,726,248 B / md5
+1. **Fetch the weights** — `serve.sh` defaults to paths under
+   `$HOME/models`, so download both required checkpoints there:
+
+   ```bash
+   huggingface-cli download tenhkspark/gemma-4-26B-A4B-NVFP4-lmhead \
+     --local-dir "$HOME/models/gemma-4-26B-A4B-NVFP4-lmfp8"
+   huggingface-cli download google/gemma-4-26B-A4B-it-assistant \
+     --local-dir "$HOME/models/gemma-4-26B-A4B-it-assistant"
+   ```
+
+   The main checkpoint manifest is 13 files / 19,240,726,248 B / md5
    `571932348835310ce77799f70a4e9814`.
 2. **Fetch the container** — `docker pull tenhkspark/vllm-gb10:v0.28.0-sm121`.
    To build it yourself instead, see `BRING-UP.md` §2.
-3. **`./serve.sh up`** — on a ~32 GB discrete GPU,
-   `./serve.sh up --env gemma4.small.env`.
+3. **`./serve.sh up`** — run from this directory. On a ~32 GB discrete
+   GPU, use `./serve.sh up --env gemma4.small.env`.
 
 Smoke check: `./serve.sh smoke` (one Japanese question, prints tok/s).
 

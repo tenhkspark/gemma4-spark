@@ -38,8 +38,11 @@ DGX Spark (GB10).
 2. **Fetch the container** — `docker pull tenhkspark/vllm-gb10:v0.28.0-sm121`
    (9.4 GB compressed). Or build vLLM's upstream `docker/Dockerfile`
    (build command and args: see `BRING-UP.md` §2).
-3. **`./serve.sh up`** — for a ~32 GB discrete GPU,
-   `./serve.sh up --env gemma4.small.env` instead.
+3. **Start serving** from this directory, pointing at the downloaded
+   checkpoint. On DGX Spark run:
+   `GEMMA4_MODEL="$PWD/gemma4-lmhead" GEMMA4_MTP_DIR=google/gemma-4-26B-A4B-it-assistant ./serve.sh up`.
+   For a ~32 GB discrete GPU, add `--env gemma4.small.env`:
+   `GEMMA4_MODEL="$PWD/gemma4-lmhead" GEMMA4_MTP_DIR=google/gemma-4-26B-A4B-it-assistant ./serve.sh up --env gemma4.small.env`.
 
 Smoke check: `./serve.sh smoke` sends one Japanese question and prints
 tok/s.

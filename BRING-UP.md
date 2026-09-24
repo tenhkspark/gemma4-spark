@@ -40,7 +40,16 @@ DOCKER_BUILDKIT=1 docker build . \
 
 - 要点: `torch_cuda_arch_list` は **12.0**（12.1 ではない）。GB10 は sm_121 だが 12.0 で動く。
 - ビルド所要時間は実測未記録。
-- 重みは `huggingface-cli download tenhkspark/gemma-4-26B-A4B-NVFP4-lmhead --local-dir ./gemma4-lmhead` で取得。
+- 重みは `gemma4.env` の既定値に合わせ、次の場所へ取得する（`GEMMA4_MODEL` を別の場所に設定する場合は `--local-dir` も合わせる）。
+
+  ```bash
+  huggingface-cli download tenhkspark/gemma-4-26B-A4B-NVFP4-lmhead \
+    --local-dir "$HOME/models/gemma-4-26B-A4B-NVFP4-lmfp8"
+  huggingface-cli download google/gemma-4-26B-A4B-it-assistant \
+    --local-dir "$HOME/models/gemma-4-26B-A4B-it-assistant"
+  ```
+
+  2 つ目は MTP 用の assistant draft で、`GEMMA4_MTP_DIR` の既定パスに置く。両方のディレクトリを用意してから `./serve.sh up` を実行する。
 
 検証（ENTRYPOINT が `vllm serve` なので `--entrypoint` で上書きする）:
 

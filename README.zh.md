@@ -68,4 +68,8 @@ curl -s http://localhost:8890/v1/chat/completions -H 'content-type: application/
 
 在 `GEMMA4_MTP=2` 的均衡配置下，与 v1 的实际使用对比在抽样模式下通过，125 个问题的基准测试结果持平（82.4% 对 82.4%）。一次贪心模式对比的差异在噪声范围内，但低于我们更严格的内部阈值。使用 `GEMMA4_MTP=8` 时，两种实际使用模式均通过，基准测试结果为 83.2% 对 84.0%。
 
+## 贡献者
+
+tenhkspark。GLM-5.3 和 GLM-5.3-Flash（Z.ai）协助了分析、测试集和文档编写。
+
 许可证：参见 `LICENSE` 和 `NOTICE`；模型的使用仍受 Gemma 使用条款约束。

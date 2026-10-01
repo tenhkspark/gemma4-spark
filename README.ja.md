@@ -68,4 +68,8 @@ curl -s http://localhost:8890/v1/chat/completions -H 'content-type: application/
 
 `GEMMA4_MTP=2` のバランス型では、v1 との実利用比較はサンプルモードで合格し、125 問のベンチマークも同等でした（82.4% に対して 82.4%）。greedy-mode での比較 1 件は誤差の範囲内でしたが、より厳しい社内基準を下回りました。`GEMMA4_MTP=8` では、実利用の両モードが合格し、ベンチマークは 83.2% に対して 84.0% でした。
 
+## 貢献者
+
+tenhkspark。GLM-5.3 と GLM-5.3-Flash（Z.ai）が、分析・テストセット・ドキュメントの作成を支援しました。
+
 ライセンス: `LICENSE` と `NOTICE` を参照してください。モデルの利用には Gemma Terms of Use が引き続き適用されます。

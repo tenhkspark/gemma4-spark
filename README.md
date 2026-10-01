@@ -68,4 +68,8 @@ With that request a test answer was 47 tokens.
 
 Balanced with `GEMMA4_MTP=2`: the real-use comparison against v1 passed in sample mode, and the 125-question benchmark was at parity (82.4% against 82.4%). One greedy-mode comparison was within noise but below our stricter internal threshold. With `GEMMA4_MTP=8` both real-use modes passed and the benchmark was 83.2% against 84.0%.
 
+## Contributors
+
+tenhkspark. GLM-5.3 and GLM-5.3-Flash (Z.ai) assisted with analysis, test sets and documentation.
+
 Licenses: see `LICENSE` and `NOTICE`; use of the model remains subject to the Gemma Terms of Use.

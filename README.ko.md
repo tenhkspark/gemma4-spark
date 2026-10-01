@@ -68,4 +68,8 @@ curl -s http://localhost:8890/v1/chat/completions -H 'content-type: application/
 
 `GEMMA4_MTP=2` 균형 설정에서 v1과의 실제 사용 비교는 샘플 모드를 통과했고, 125개 질문 벤치마크는 동등한 결과였습니다 (82.4% 대 82.4%). 탐욕 모드 비교 한 건은 노이즈 범위 안이었지만 더 엄격한 내부 기준에는 미치지 못했습니다. `GEMMA4_MTP=8`에서는 실제 사용 두 모드 모두 통과했고 벤치마크는 83.2% 대 84.0%였습니다.
 
+## 기여자
+
+tenhkspark. GLM-5.3과 GLM-5.3-Flash(Z.ai)가 분석, 테스트 세트, 문서 작성을 도왔습니다.
+
 라이선스: `LICENSE`와 `NOTICE`를 참조하세요. 모델 사용에는 Gemma 이용 약관이 계속 적용됩니다.

@@ -15,7 +15,7 @@ tags:
 
 [English](README.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [中文](README.zh.md)
 
-NVFP4 derivative checkpoint built on `nvidia/Gemma-4-26B-A4B-NVFP4` (NVIDIA's ModelOpt NVFP4 quantization of Google's `gemma-4-26B-A4B-it`), re-saved with `tie_word_embeddings=false` and a separately NVFP4-quantized `lm_head.weight`. Weights: 19.2 GB, on-GPU footprint 17.08 GiB. The weights are unchanged in v2; v2 is a new serving setup and image ([tenhkspark/gemma-4-v2:v2](https://hub.docker.com/r/tenhkspark/gemma-4-v2:v2)). Serving setup: https://github.com/tenhkspark/gemma4-spark
+NVFP4 derivative checkpoint built on `nvidia/Gemma-4-26B-A4B-NVFP4` (NVIDIA's ModelOpt NVFP4 quantization of Google's `gemma-4-26B-A4B-it`), re-saved with `tie_word_embeddings=false` and a separately NVFP4-quantized `lm_head.weight`. Weights: 19.2 GB, on-GPU footprint 17.08 GiB. The weights are unchanged in v2; v2 is a new serving setup and image ([tenhkspark/gemma-4-v2:v2](https://hub.docker.com/r/tenhkspark/gemma-4-v2)). Serving setup: https://github.com/tenhkspark/gemma4-spark
 
 ## v1 to v2
 
@@ -36,7 +36,7 @@ Time to first token at 2k / 8k / 30k prompts is the same as v1 in the balanced p
 
 ## What to change when upgrading
 
-- Image: [tenhkspark/gemma-4-v2:v2](https://hub.docker.com/r/tenhkspark/gemma-4-v2:v2)
+- Image: [tenhkspark/gemma-4-v2:v2](https://hub.docker.com/r/tenhkspark/gemma-4-v2)
 - Env files: `gemma4-v2.env` plus one profile, `gemma4-v2-balanced.env` (default) or `gemma4-v2-prefill-first.env` (long prompts)
 - Serve script: `gemma4-v2-serve.sh`, chat template `chat_template.jinja`
 - Router (optional, several nodes): `tools/router.py` with `tools/router-v2.tsv`

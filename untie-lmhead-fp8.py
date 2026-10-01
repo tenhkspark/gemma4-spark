@@ -20,7 +20,7 @@ Two modes, chosen from the checkpoint's quantization framework:
         from hf_quant_config.json quantization.exclude_modules and from
         config.json quantization_config.ignore so the layer is quantized.
 
-Runs inside the tenhkspark/gemma-4-v2:v2 image (needs torch + safetensors):
+Runs inside the tenhkspark/gemma-4-v2 image (needs torch + safetensors):
 
   docker run --rm -v "$HOME/models":/models \
     -v <this dir>:/tools:ro --entrypoint python3 tenhkspark/gemma-4-v2:v2 \

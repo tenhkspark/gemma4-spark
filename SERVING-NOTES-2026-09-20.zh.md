@@ -4,7 +4,7 @@
 
 > 所有数值均来自当日实测。旧测量体系的数值（启用 prefix cache 后重发同一提示词、以少量样本的最大值充当代表值的做法）已撤回，本文不再收录。
 
-环境：1 台 DGX Spark（DGX Spark / sm_121 / 统一内存 128GB），vLLM 0.28.0 为使用上游 Dockerfile 构建的镜像 `tenhkspark/gemma-4-v2:v2`（可用 `docker pull` 获取，压缩 9.4 GB / 展开约 30 GB），TP=1。所有测量均在节点上（localhost）执行。
+环境：1 台 DGX Spark（sm_121 / 统一内存 128GB），vLLM 0.28.0 为使用上游 Dockerfile 构建的镜像 `tenhkspark/gemma-4-v2:v2`（可用 `docker pull` 获取，压缩 9.4 GB / 展开约 30 GB），TP=1。所有测量均在节点上（localhost）执行。
 
 ## 配置（A+γ8）
 

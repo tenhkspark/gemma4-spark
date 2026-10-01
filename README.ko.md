@@ -1,6 +1,6 @@
 # Gemma 4 26B-A4B on DGX Spark, v2
 
-단일 DGX Spark (DGX Spark)에서 Gemma 4 26B-A4B의 NVFP4 빌드를 제공하기 위한 설정입니다. 모델 가중치는 v1과 동일합니다. v1도 계속 사용할 수 있습니다. git tag `v1`과 이미지 `tenhkspark/gemma-4-v2:v2`로 이용할 수 있습니다.
+단일 DGX Spark에서 Gemma 4 26B-A4B의 NVFP4 빌드를 제공하기 위한 설정입니다. 모델 가중치는 v1과 동일합니다. v1은 git tag `v1`로 이용할 수 있습니다.
 
 ## v1에서 v2로
 
@@ -22,7 +22,7 @@
 
 ## 업그레이드할 때 변경할 항목
 
-- 이미지: [tenhkspark/gemma-4-v2:v2](https://hub.docker.com/r/tenhkspark/gemma-4-v2:v2)
+- 이미지: [tenhkspark/gemma-4-v2:v2](https://hub.docker.com/r/tenhkspark/gemma-4-v2)
 - Env 파일: `gemma4-v2.env`와 프로파일 하나, `gemma4-v2-balanced.env` (기본값) 또는 `gemma4-v2-prefill-first.env` (긴 프롬프트)
 - 제공 스크립트: `gemma4-v2-serve.sh`, 채팅 템플릿 `chat_template.jinja`
 - 라우터 (선택 사항, 여러 노드): `tools/router.py`와 `tools/router-v2.tsv`

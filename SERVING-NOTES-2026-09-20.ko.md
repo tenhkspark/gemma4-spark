@@ -4,7 +4,7 @@
 
 > 수치는 모두 같은 날의 실측에서 비롯된다. 구 측정계의 값(prefix cache 유효 상태에서의 동일 프롬프트 재전송, 소수 사례의 최댓값을 대푯값으로 한 것)은 철회 완료이며, 본문에는 포함하지 않는다.
 
-환경: DGX Spark 1대(DGX Spark / sm_121 / 통합 메모리 128GB), vLLM 0.28.0을 업스트림 Dockerfile에서 빌드한 이미지 `tenhkspark/gemma-4-v2:v2`(`docker pull`로 받을 수 있다, 압축 9.4 GB / 전개 약 30 GB), TP=1. 측정은 모두 노드 위(localhost)에서 실행.
+환경: DGX Spark 1대(sm_121 / 통합 메모리 128GB), vLLM 0.28.0을 업스트림 Dockerfile에서 빌드한 이미지 `tenhkspark/gemma-4-v2:v2`(`docker pull`로 받을 수 있다, 압축 9.4 GB / 전개 약 30 GB), TP=1. 측정은 모두 노드 위(localhost)에서 실행.
 
 ## 구성(A+γ8)
 

@@ -1,5 +1,7 @@
 [English](README.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [中文](README.zh.md)
 
+> v2（262k 上下文配置、路由器）请参阅英文版 [README.md](README.md)。以下为 v1 内容，正文中的文件名（`serve.sh`、`gemma4.env` 等）对应 git 标签 `v1`。
+
 单台 DGX Spark 运行 Gemma 4 26B A4B。
 官方 NVFP4 原样: 单发 28.8 tok/s。
 本配方: 单发 109.7 tok/s,32 并发合计 1,080.8 tok/s。
@@ -28,7 +30,7 @@
 - `MODEL-CARD.md` — 模型卡
 - `untie-lmhead-fp8.py` — 附录: 该权重的制作方法
 - `bench-cell.py` — bring-up 验证用的 C=1 bench 单元
-- `LICENSE`、`NOTICE`、`LICENSE-CHECK.md`、`check.sh`、`upload.sh`
+- `LICENSE`、`NOTICE`
 
 ## 要求
 
@@ -264,9 +266,6 @@ FP8 target）。
 Apache License 2.0 — 见 `LICENSE` 与 `NOTICE`。模型本体的使用
 仍受 Gemma Terms of Use 及禁止用途政策约束。
 
-## Tools used
-
-Tools used — GLM-5.3-Flash. All code in this repository was written for this project.
 
 ## 致谢
 

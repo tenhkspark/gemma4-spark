@@ -20,14 +20,14 @@
 
 DGX Spark 的 GPU 与 OS 共享同一块 128GB 统一内存。`--gpu-memory-utilization` 指定的是"其中多大比例由 vLLM 在启动时预先占用"，与实际负载无关，一经占用便不再释放。
 
-默认值为 **0.5**（`gemma4.env` 中的 `GEMMA4_GPU_UTIL=0.50`）。预留构成为：权重 17.08 GiB（启动日志实测）＋ MTP 草稿约 0.8GB ＋ KV 缓存 ＋ 工作区。0.5 时的实测：启动日志输出 `GPU KV cache size: 607,998 tokens`（按 32K 窗口换算约 18.6 个并发）。启动后 `free -g` 显示 available 51〜52GB，OS 侧仍有余量。
+默认值为 **0.5**（`gemma4-v2.env` 中的 `GEMMA4_GPU_UTIL=0.50`）。预留构成为：权重 17.08 GiB（启动日志实测）＋ MTP 草稿约 0.8GB ＋ KV 缓存 ＋ 工作区。0.5 时的实测：启动日志输出 `GPU KV cache size: 607,998 tokens`（按 32K 窗口换算约 18.6 个并发）。启动后 `free -g` 显示 available 51〜52GB，OS 侧仍有余量。
 
 util 调得越高 KV 池越大，但 OS 侧会相应被压缩。以 0.9 启动时 OS 侧空闲降至数 GB，同机驻留的进程被杀掉（实测）。
 
 - 想给 OS 留余量 → 0.5（默认）
 - 想增加同时保留的并发数 → 0.6 或 0.7
 
-修改方法只改 `gemma4.env` 中 `GEMMA4_GPU_UTIL` 这一行。修改后需要重建容器（`./serve.sh down` → `up`，到 READY 约 4 分钟）。
+修改方法只改 `gemma4-v2.env` 中 `GEMMA4_GPU_UTIL` 这一行。修改后需要重建容器（`./gemma4-v2-serve.sh down` → `up`，到 READY 约 4 分钟）。
 
 | GPU_UTIL | KV token 数 | 按 32K 换算的并发数 | OS 侧空闲 |
 |---|---:|---:|---:|
@@ -253,9 +253,6 @@ FP8 target）。
 将 attention 恢复到较高精度可以恢复质量但单发略有下降，这一权衡在
 与全层 4bit 版的比较中也有体现（JNLI −1.64 → −0.74 pt、单发 122.3 → 117.5）。
 
-## Tools used
-
-Tools used — GLM-5.3-Flash. All code in this repository was written for this project.
 
 ## 致谢、许可
 

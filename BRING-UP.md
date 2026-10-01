@@ -18,7 +18,7 @@
 docker pull tenhkspark/gemma-4-v2:v2
 ```
 
-約 30 GB。これで `serve.sh` がそのまま動く。
+約 30 GB。これで `gemma4-v2-serve.sh` がそのまま動く。
 
 ### 方法 2: 自分でビルドする
 
@@ -40,7 +40,7 @@ DOCKER_BUILDKIT=1 docker build . \
 
 - 要点: `torch_cuda_arch_list` は **12.0**（12.1 ではない）。DGX Spark は sm_121 だが 12.0 で動く。
 - ビルド所要時間は実測未記録。
-- 重みは `gemma4.env` の既定値に合わせ、次の場所へ取得する（`GEMMA4_MODEL` を別の場所に設定する場合は `--local-dir` も合わせる）。
+- 重みは `gemma4-v2.env` の既定値に合わせ、次の場所へ取得する（`GEMMA4_MODEL` を別の場所に設定する場合は `--local-dir` も合わせる）。
 
   ```bash
   huggingface-cli download tenhkspark/gemma-4-26B-A4B-NVFP4-lmhead \
@@ -49,7 +49,7 @@ DOCKER_BUILDKIT=1 docker build . \
     --local-dir "$HOME/models/gemma-4-26B-A4B-it-assistant"
   ```
 
-  2 つ目は MTP 用の assistant draft で、`GEMMA4_MTP_DIR` の既定パスに置く。両方のディレクトリを用意してから `./serve.sh up` を実行する。
+  2 つ目は MTP 用の assistant draft で、`GEMMA4_MTP_DIR` の既定パスに置く。両方のディレクトリを用意してから `./gemma4-v2-serve.sh up` を実行する。
 
 検証（ENTRYPOINT が `vllm serve` なので `--entrypoint` で上書きする）:
 
@@ -74,14 +74,14 @@ docker run --rm --runtime nvidia --gpus all \
 
 DGX Spark は GPU と OS が同じ 128GB の統合メモリを分け合う。`--gpu-memory-utilization` は「その何割を vLLM が起動時に先取りするか」の指定で、実際の負荷に関係なく、確保されたままになる。
 
-既定は **0.5**（`gemma4.env` の `GEMMA4_GPU_UTIL=0.50`）。予約の内訳は重み 17.08 GiB（起動ログ実測）＋ MTP ドラフト 約 0.8GB ＋ KV キャッシュ ＋ 作業領域。0.5 での実測: 起動ログに `GPU KV cache size: 607,998 tokens`（32K 窓換算で約 18.6 本分）、起動後 `free -g` の available は 51〜52GB。
+既定は **0.5**（`gemma4-v2.env` の `GEMMA4_GPU_UTIL=0.50`）。予約の内訳は重み 17.08 GiB（起動ログ実測）＋ MTP ドラフト 約 0.8GB ＋ KV キャッシュ ＋ 作業領域。0.5 での実測: 起動ログに `GPU KV cache size: 607,998 tokens`（32K 窓換算で約 18.6 本分）、起動後 `free -g` の available は 51〜52GB。
 
 util を上げるほど KV プールは増えるが、その分 OS 側は削られる。0.9 で起動した時は OS 側の空きが数 GB まで落ち、同居していたプロセスが落ちた（実測）。
 
 - OS に余裕を残したい → 0.5（既定）
 - 同時に保持する本数を増やしたい → 0.6 か 0.7
 
-変え方は `gemma4.env` の `GEMMA4_GPU_UTIL` の 1 行だけ。変更後はコンテナの立て直しが必要（`./serve.sh down` → `up`、READY まで約 4 分）。
+変え方は `gemma4-v2.env` の `GEMMA4_GPU_UTIL` の 1 行だけ。変更後はコンテナの立て直しが必要（`./gemma4-v2-serve.sh down` → `up`、READY まで約 4 分）。
 
 | GPU_UTIL | KV トークン | 32K 換算の同時本数 | OS 側の空き |
 |---|---:|---:|---:|
@@ -93,18 +93,18 @@ util を上げるほど KV プールは増えるが、その分 OS 側は削ら�
 起動は 1 コマンド（ノード上で実行）:
 
 ```bash
-cd gemma4-spark   # このディレクトリ（重みのパスは gemma4.env の GEMMA4_MODEL / GEMMA4_MTP_DIR）
-./serve.sh up
+cd gemma4-spark   # このディレクトリ（重みのパスは gemma4-v2.env の GEMMA4_MODEL / GEMMA4_MTP_DIR）
+./gemma4-v2-serve.sh up
 ```
 
-`serve.sh` の `--gpu-memory-utilization` 既定は 0.50（`gemma4.env` の `GEMMA4_GPU_UTIL`）。READY まで自動で待つ（実測 241 秒）。停止は `./serve.sh down`。
+`gemma4-v2-serve.sh` の `--gpu-memory-utilization` 既定は 0.50（`gemma4-v2.env` の `GEMMA4_GPU_UTIL`）。READY まで自動で待つ（実測 241 秒）。停止は `./gemma4-v2-serve.sh down`。
 
 ## 5. 動作確認
 
 smoke（日本語 1 問を投げて tok/s を表示）:
 
 ```bash
-./serve.sh smoke
+./gemma4-v2-serve.sh smoke
 ```
 
 bench 1 セル（例: 入力約 1K・C=1）:
@@ -113,7 +113,7 @@ bench 1 セル（例: 入力約 1K・C=1）:
 python3 bench-cell.py
 ```
 
-起動ログで確認すべき 5 点（`docker logs gemma4-serve`）:
+起動ログで確認すべき 5 点（`docker logs gemma4-v2-serve`）:
 
 1. `'enable_prefix_caching': False`
 2. `'num_speculative_tokens': 8`（`SpeculativeConfig(method='mtp', …)`）
@@ -197,5 +197,3 @@ KV は 837,957 トークン確保済みで、律速は KV 不足ではなく pre
 ## 謝辞
 
 Google・NVIDIA・vLLM の 3 者の成果物の上に成り立っています。
-
-Tools used — GLM-5.3-Flash. All code in this repository was written for this project.

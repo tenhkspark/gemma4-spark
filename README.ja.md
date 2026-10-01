@@ -1,5 +1,7 @@
 [English](README.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [中文](README.zh.md)
 
+> v2（262k コンテキストのプロファイル・ルーター）は英語版 [README.md](README.md) に記載しています。以下は v1 の内容で、文中のファイル名（`serve.sh`、`gemma4.env` など）は git タグ `v1` のものです。
+
 DGX Spark 1 台で Gemma 4 26B A4B。
 公式 NVFP4 そのまま: 単発 28.8 tok/s。
 本レシピ: 単発 109.7 tok/s、32 並列で合計 1,080.8 tok/s。
@@ -28,7 +30,7 @@ DGX Spark 1 台で Gemma 4 26B A4B。
 - `MODEL-CARD.md` — モデルカード
 - `untie-lmhead-fp8.py` — appendix: この重みの作り方
 - `bench-cell.py` — ブリングアップ確認用の C=1 ベンチ 1 セル
-- `LICENSE`、`NOTICE`、`LICENSE-CHECK.md`、`check.sh`、`upload.sh`
+- `LICENSE`、`NOTICE`
 
 ## 要件
 
@@ -276,9 +278,6 @@ attention を高い精度に戻すと質が戻り単発がわずかに落ちる�
 Apache License 2.0 — `LICENSE` と `NOTICE` を参照。モデル本体の
 利用には Gemma Terms of Use と禁止用途ポリシーが引き続き適用される。
 
-## Tools used
-
-Tools used — GLM-5.3-Flash. All code in this repository was written for this project.
 
 ## 謝辞
 

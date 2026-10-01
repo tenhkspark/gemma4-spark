@@ -1,0 +1,3 @@
+profile	url	max_prompt_tokens	thinking
+balanced	http://BALANCED_HOST:8890	32768	any
+prefill-first	http://PREFILL_HOST:8890	262144	any

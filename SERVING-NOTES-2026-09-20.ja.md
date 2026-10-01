@@ -20,14 +20,14 @@
 
 DGX Spark は GPU と OS が同じ 128GB の統合メモリを分け合う。`--gpu-memory-utilization` は「その何割を vLLM が起動時に先取りするか」の指定で、実際の負荷に関係なく、確保されたままになる。
 
-既定は **0.5**（`gemma4.env` の `GEMMA4_GPU_UTIL=0.50`）。予約の内訳は重み 17.08 GiB（起動ログ実測）＋ MTP ドラフト 約 0.8GB ＋ KV キャッシュ ＋ 作業領域。0.5 での実測: 起動ログに `GPU KV cache size: 607,998 tokens` と出る（32K 窓換算で約 18.6 本分）。起動後の `free -g` は available 51〜52GB で、OS 側に余裕が残る。
+既定は **0.5**（`gemma4-v2.env` の `GEMMA4_GPU_UTIL=0.50`）。予約の内訳は重み 17.08 GiB（起動ログ実測）＋ MTP ドラフト 約 0.8GB ＋ KV キャッシュ ＋ 作業領域。0.5 での実測: 起動ログに `GPU KV cache size: 607,998 tokens` と出る（32K 窓換算で約 18.6 本分）。起動後の `free -g` は available 51〜52GB で、OS 側に余裕が残る。
 
 util を上げるほど KV プールは増えるが、その分 OS 側は削られる。0.9 で起動した時は OS 側の空きが数 GB まで落ち、同居していたプロセスが落ちた（実測）。
 
 - OS に余裕を残したい → 0.5（既定）
 - 同時に保持する本数を増やしたい → 0.6 か 0.7
 
-変え方は `gemma4.env` の `GEMMA4_GPU_UTIL` の 1 行だけ。変更後はコンテナの立て直しが必要（`./serve.sh down` → `up`、READY まで約 4 分）。
+変え方は `gemma4-v2.env` の `GEMMA4_GPU_UTIL` の 1 行だけ。変更後はコンテナの立て直しが必要（`./gemma4-v2-serve.sh down` → `up`、READY まで約 4 分）。
 
 | GPU_UTIL | KV トークン | 32K 換算の同時本数 | OS 側の空き |
 |---|---:|---:|---:|
@@ -254,9 +254,6 @@ FP8 target にする）。
 attention を高い精度に戻すと質が戻り単発がわずかに落ちる、というトレードオフは
 全層 4bit 版との比較にも現れている（JNLI −1.64 → −0.74 pt、単発 122.3 → 117.5）。
 
-## Tools used
-
-Tools used — GLM-5.3-Flash. All code in this repository was written for this project.
 
 ## 謝辞・ライセンス
 

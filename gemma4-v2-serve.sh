@@ -1,11 +1,7 @@
 #!/bin/bash
-# serve.sh -- run Gemma 4 on ONE GPU node. Runs on the node itself;
-# no ssh, no second node. Config lives in gemma4.env next to this script.
 set -euo pipefail
 DIR="$(cd "$(dirname "$0")" && pwd)"
-# Env file: --env <file> flag or GEMMA4_ENV; default gemma4.env. Relative
-# paths resolve against this script's dir; a missing file is a hard error.
-env_file="${GEMMA4_ENV:-gemma4.env}"
+env_file="${GEMMA4_ENV:-gemma4-v2.env}"
 rest=()
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -22,7 +18,7 @@ case "$env_file" in /*) ;; *) env_file="$DIR/$env_file" ;; esac
 
 usage() {
   cat <<EOF
-usage: serve.sh <up|down|status|smoke> [--env <file>]
+usage: gemma4-v2-serve.sh <up|down|status|smoke> [--env <file>]
   up      docker run $GEMMA4_CONTAINER ($GEMMA4_IMAGE, $GEMMA4_MODEL,
           port $GEMMA4_PORT, MTP=$GEMMA4_MTP, KV=$GEMMA4_KV), then wait READY
   down    remove the container (other containers untouched)
@@ -46,16 +42,13 @@ cmd_up() {
   [ "${GEMMA4_LMO:-0}" = 1 ] && lmo_arg="--language-model-only"
   [ "$GEMMA4_KV" = fp8 ] && kv_arg="--kv-cache-dtype fp8"
   if [ "$GEMMA4_MTP" != 0 ]; then
-    # MTP needs the separate assistant draft model (vLLM PR#41745). The
-    # JSON sits inside the container's bash -lc string, so it must carry
-    # its own quotes.
     [ -n "${GEMMA4_MTP_DIR:-}" ] \
       || { echo "FAIL: GEMMA4_MTP_DIR is unset but GEMMA4_MTP=$GEMMA4_MTP" >&2; exit 1; }
     local mtp_ref
     case "$GEMMA4_MTP_DIR" in
       /*) [ -d "$GEMMA4_MTP_DIR" ] || { echo "FAIL: MTP dir not found: $GEMMA4_MTP_DIR" >&2; exit 1; }
           mtp_mnt="-v $GEMMA4_MTP_DIR:/checkpoint-mtp:ro"; mtp_ref=/checkpoint-mtp ;;
-      *)  mtp_ref="$GEMMA4_MTP_DIR" ;;  # HF id, resolved from the mounted cache
+      *)  mtp_ref="$GEMMA4_MTP_DIR" ;;
     esac
     spec_arg="--speculative-config '{\"method\":\"mtp\",\"model\":\"$mtp_ref\",\"num_speculative_tokens\":$GEMMA4_MTP}'"
   fi
@@ -65,6 +58,13 @@ cmd_up() {
     *)  local hf=${GEMMA4_HF_CACHE:-$HOME/.cache/huggingface}; mkdir -p "$hf"
         model_mnt="-v $hf:/root/.cache/huggingface"; model_ref="$GEMMA4_MODEL" ;;
   esac
+  local tmpl_mnt="" tmpl_arg=""
+  if [ -n "${GEMMA4_CHAT_TEMPLATE:-}" ]; then
+    [ -f "$GEMMA4_CHAT_TEMPLATE" ] \
+      || { echo "FAIL: chat template not found: $GEMMA4_CHAT_TEMPLATE" >&2; exit 1; }
+    tmpl_mnt="-v $GEMMA4_CHAT_TEMPLATE:/chat-template.jinja:ro"
+    tmpl_arg="--chat-template /chat-template.jinja"
+  fi
   if [ -n "${GEMMA4_JIT_CACHE:-}" ]; then
     mkdir -p "$GEMMA4_JIT_CACHE"
     jit_mnt="-v $GEMMA4_JIT_CACHE:/jit-cache"
@@ -72,10 +72,9 @@ cmd_up() {
   fi
 
   docker rm -f "$GEMMA4_CONTAINER" >/dev/null 2>&1 || true
-  # serve flag set: single node, TP=1.
-  # shellcheck disable=SC2086
   docker run -d --name "$GEMMA4_CONTAINER" --network host --gpus all \
-    --shm-size=16g --ipc=host $model_mnt $mtp_mnt $jit_mnt $jit_env \
+  ${GEMMA4_EXTRA_MOUNTS:-} \
+    --shm-size=16g --ipc=host $model_mnt $mtp_mnt $jit_mnt $tmpl_mnt $jit_env \
     --entrypoint bash "$GEMMA4_IMAGE" -lc \
     "exec vllm serve $model_ref \
       --served-model-name $GEMMA4_SERVED_NAME \
@@ -86,7 +85,7 @@ cmd_up() {
       --reasoning-parser gemma4 --tool-call-parser gemma4 \
       --enable-auto-tool-choice \
       --limit-mm-per-prompt '{\"image\":0,\"audio\":0}' \
-      --gpu-memory-utilization ${GEMMA4_GPU_UTIL:-0.50} $kv_arg $spec_arg $GEMMA4_EXTRA_ARGS"
+      --gpu-memory-utilization ${GEMMA4_GPU_UTIL:-0.50} $kv_arg $spec_arg $tmpl_arg $GEMMA4_EXTRA_ARGS"
   echo "started $GEMMA4_CONTAINER; waiting for :$GEMMA4_PORT (max ${GEMMA4_READY_S}s)"
   local i=0
   until api_ok; do
@@ -98,6 +97,44 @@ cmd_up() {
     sleep 15
   done
   echo "READY (${i}s)"
+  if [ "${GEMMA4_WARM_PREFILL:-1}" = 1 ]; then
+    python3 - "$GEMMA4_PORT" "$GEMMA4_SERVED_NAME" <<'PY' || echo "WARN: startup warm prefill failed; server remains READY" >&2
+import json
+import sys
+import time
+import urllib.request
+
+port, model = sys.argv[1:]
+base = f"http://127.0.0.1:{port}"
+
+def post(path, body, timeout=600):
+    request = urllib.request.Request(
+        base + path, data=json.dumps(body).encode(),
+        headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+        return json.load(response)
+
+def token_ids(target, salt):
+    words = [f"warmup-{salt}-{i:05d}-prefill-context" for i in range(target + 32)]
+    text = " ".join(words)
+    result = post("/tokenize", {"model": model, "prompt": text}, 120)
+    ids = result.get("tokens")
+    if not isinstance(ids, list) or len(ids) < target:
+        raise RuntimeError(f"tokenizer returned fewer than {target} tokens")
+    return ids[:target]
+
+for label, count in (("short", 2048), ("chunk-boundary", 8192), ("long", 30000)):
+    started = time.perf_counter()
+    response = post("/v1/completions", {
+        "model": model, "prompt": token_ids(count, label),
+        "max_tokens": 1, "temperature": 0, "stream": False,
+    })
+    choices = response.get("choices") or []
+    if not choices or choices[0].get("finish_reason") not in ("length", "stop"):
+        raise RuntimeError(f"{label} warm request returned no completed choice")
+    print(f"warm-prefill {label} tokens={count} elapsed={time.perf_counter()-started:.2f}s", flush=True)
+PY
+  fi
   free -g | awk 'NR==2 {printf "mem-GB total=%s used=%s available=%s\n", $2, $3, $7}'
   docker logs "$GEMMA4_CONTAINER" 2>&1 | grep -m1 'GPU KV cache size' \
     || echo "kv: 'GPU KV cache size' line not in container log"

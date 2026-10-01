@@ -1,5 +1,7 @@
 [English](README.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [中文](README.zh.md)
 
+> v2(262k 컨텍스트 프로파일, 라우터)는 영어판 [README.md](README.md)에 설명되어 있습니다. 아래는 v1 내용이며, 본문의 파일 이름(`serve.sh`, `gemma4.env` 등)은 git 태그 `v1`의 것입니다.
+
 DGX Spark 1대로 Gemma 4 26B A4B.
 공식 NVFP4 그대로: 단발 28.8 tok/s.
 이 레시피: 단발 109.7 tok/s, 32 병렬에서 합계 1,080.8 tok/s.
@@ -28,7 +30,7 @@ DGX Spark 1대로 Gemma 4 26B A4B.
 - `MODEL-CARD.md` — 모델 카드
 - `untie-lmhead-fp8.py` — appendix: 이 가중치의 만드는 방법
 - `bench-cell.py` — 브링업 확인용 C=1 벤치 1셀
-- `LICENSE`, `NOTICE`, `LICENSE-CHECK.md`, `check.sh`, `upload.sh`
+- `LICENSE`, `NOTICE`
 
 ## 요건
 
@@ -260,9 +262,6 @@ attention을 높은 정밀도로 되돌리면 품질이 돌아오고 단발이 �
 Apache License 2.0 — `LICENSE`와 `NOTICE`를 참조. 모델 본체의
 이용에는 Gemma Terms of Use와 금지 용도 정책이 계속 적용된다.
 
-## Tools used
-
-Tools used — GLM-5.3-Flash. All code in this repository was written for this project.
 
 ## 사사
 

@@ -1,269 +1,71 @@
-[English](README.md) | [日本語](README.ja.md) | [한국어](README.ko.md) | [中文](README.zh.md)
+# Gemma 4 26B-A4B on DGX Spark, v2
 
-> v2(262k 컨텍스트 프로파일, 라우터)는 영어판 [README.md](README.md)에 설명되어 있습니다. 아래는 v1 내용이며, 본문의 파일 이름(`serve.sh`, `gemma4.env` 등)은 git 태그 `v1`의 것입니다.
+단일 DGX Spark (DGX Spark)에서 Gemma 4 26B-A4B의 NVFP4 빌드를 제공하기 위한 레시피입니다. 모델 가중치는 v1과 동일합니다. v1도 계속 사용할 수 있습니다. git tag `v1`과 이미지 `tenhkspark/gemma-4-v2:v2`로 이용할 수 있습니다.
 
-DGX Spark 1대로 Gemma 4 26B A4B.
-공식 NVFP4 그대로: 단발 28.8 tok/s.
-이 레시피: 단발 109.7 tok/s, 32 병렬에서 합계 1,080.8 tok/s.
+## v1에서 v2로
 
-# gemma4-spark — Gemma 4 26B A4B NVFP4(lm_head 분리판)를 NVIDIA DGX Spark에서
+| tok/s 별도 표기가 없는 경우 | v1 | v2 |
+|---|---|---|
+| 컨텍스트 길이 | 32,768 | 262,144 |
+| 첫 토큰까지 시간, 32k 프롬프트 | 12.4 s | 6.1 s (prefill 우선 프로파일) |
+| 첫 토큰까지 시간, 128k 프롬프트 | 지원 안 함 | 56 s (prefill 우선 프로파일) |
+| 첫 토큰까지 시간, 250k 프롬프트 | 지원 안 함 | 182 s (prefill 우선 프로파일) |
+| 디코드, 일본어 채팅, 동시성 1 / 32에서 tok/s | 45.9 / 616 | 62.9 / 850 |
+| 디코드, 코딩 | 67.8 / 644 | 69.5 / 725 |
+| 디코드, 도구 호출 | 54.6 / 193 | 61.4 / 272 |
+| 디코드, 긴 문서 | 29.1 / 152 | 38.0 / 448 |
+| 디코드, 구조화된 추출 (`GEMMA4_MTP=8` 옵션) | 109.7 / 1,080.8 (게시된 값 기준) | 약 100 / 934 |
+| 품질 (벤치마크 및 실제 사용 검사) | 기준선 | 동등 |
+| 콜드 스타트 | 약 4 min | 약 4 min |
 
-## 배포하는 것
+균형 프로파일에서 2k / 8k / 30k 프롬프트의 첫 토큰까지 시간은 v1과 같습니다 (0.32 s / 1.57 s / 12.3 s). 안정성: 라우터를 통해 짧은 요청 32개와 긴 요청 4개(최대 131k)를 동시에 15분간 처리했으며, 오류 0건, 시간 초과 0건이었습니다.
 
-**A+γ8** 이라는 구성입니다.
+## 업그레이드할 때 변경할 항목
 
-- NVIDIA 공식 NVFP4 체크포인트(`nvidia/Gemma-4-26B-A4B-NVFP4`)를 기반으로 한다
-- `tie_word_embeddings`를 해제하고 **lm_head도 NVFP4로 양자화**한 것
-  (appendix의 `untie-lmhead-fp8.py`가 이 가중치의 만드는 방법)
-- MTP 투기 디코딩, `num_speculative_tokens = 8`(γ8), 드래프트는
-  `google/gemma-4-26B-A4B-it-assistant`
-- `--language-model-only`(vision tower를 읽지 않는다)
-- KV 캐시는 FP8
-
-## 수록물
-
-- `serve.sh` / `gemma4.env` / `gemma4.small.env` — 단일 노드 서빙용
-  하네스(`up` / `down` / `status` / `smoke`)
-- `BRING-UP.md` — 브링업 절차 전문(일본어)
-- `SERVING-NOTES-2026-09-20.{ja,ko,zh}.md` — 서빙 기록. ko/zh는
-  확정판에서 번역
-- `MODEL-CARD.md` — 모델 카드
-- `untie-lmhead-fp8.py` — appendix: 이 가중치의 만드는 방법
-- `bench-cell.py` — 브링업 확인용 C=1 벤치 1셀
-- `LICENSE`, `NOTICE`
-
-## 요건
-
-- DGX Spark 1대(��통합 메모리 128 GB), 또는 Blackwell 세대의 GPU
-  (NVFP4 연산에는 그 세대가 필요)
-- 디스크 약 50 GB(가중치 19.2 GB + 드래프트 0.8 GB + 컨테이너 약 30 GB)
-- 컨테이너 이미지 — `docker pull tenhkspark/gemma-4-v2:v2`
-  (압축 9.4 GB). 직접 빌드하는 경우의 커맨드와 인수는 `BRING-UP.md` §2
-
-## 퀵스타트
-
-1. **가중치를 받는다**(`huggingface-cli download tenhkspark/gemma-4-26B-A4B-NVFP4-lmhead --local-dir ./gemma4-lmhead`). 검증용 manifest는
-   13 파일 / 19,240,726,248 B / md5 `571932348835310ce77799f70a4e9814`.
-2. **컨테이너를 받는다**(`docker pull tenhkspark/gemma-4-v2:v2`).
-   직접 빌드하는 절차는 `BRING-UP.md` §2.
-3. **`./serve.sh up`** — 32 GB급 디스크리트 GPU라면
-   `./serve.sh up --env gemma4.small.env`.
-
-동작 확인: `./serve.sh smoke`(일본어 1문을 던져 tok/s를 표시).
-
-## 실측치(DGX Spark, 2026-09-20)
-
-### 속도
-
-실무형 프롬프트 3형 × 30문서 × 2반복, 온도 0, TTFT 포함 헤드라인 속도:
-
-| 단발(C=1) | tok/s |
-|---|---:|
-| 공식 NVFP4 그대로・투기 없음 | 28.8 |
-| 공식 NVFP4 그대로・γ8 | 100.5 |
-| A+γ8(이 레시피) | **109.7** |
-| 같은 구성・투기 없음(대조) | 35.8 |
-
-투기 디코딩에 의한 증속률: **3.06 배**(109.7 / 35.8). 공식 그대로라도
-28.8 → 100.5의 **3.49 배**. lm_head를 NVFP4로 한 효과는
-100.5 → 109.7의 **+9.2%**(투기 없음끼리라면 28.8 → 35.8의 +24.3%). 정상 부하(각 병렬도 60초)에서의 합계:
-
-| 동시 실행 수 | 합계 tok/s |
-|---:|---:|
-| C=8 | 496.7 |
-| C=16 | 822.0 |
-| C=32 | 1,080.8 |
-
-### 실무 태스크(일본어 90건, 온도 0)
-
-| 동시 실행 수 | passed | 건/분 |
-|---:|---:|---:|
-| C=1 | 84/90 | 7.59 |
-| C=8 | 82/90 | 35.90 |
-| C=32 | 80/90 | 83.40 |
-
-### 장문
-
-| 입력 길이 | C=1 (tok/s) | C=8 합계 (tok/s) |
-|---:|---:|---:|
-| 8K | 30.6 | 62.9 |
-| 28K | 10.4 | 12.0 |
-
-KV 부족이 아니라 prefill 율속 — 장문은 나눠서 보낸다.
-
-### 품질(BF16과의 페어 차, pt)
-
-JGLUE valid + JMMLU. 각 n = 2,434(JCommonsenseQA는 전 1,119).
-
-| 지표 | Δ (pt) | 단측 95% 하한 |
-|---|---:|---:|
-| JSQuAD EM | −0.66 | −1.17 |
-| JSQuAD char-F1 | −0.17 | −0.41 |
-| JNLI acc(1회차) | −1.23 | −1.93 |
-| JNLI acc(2회차) | −1.48 | −2.14 |
-| JCommonsenseQA acc | −0.36 | −1.07 |
-| JMMLU acc | −0.70 | −1.60 |
-
-**5개 지표 모두 점추정으로 −2 pt 이내. JNLI는 하한이 −2 pt를 밑돌기
-때문에 통계적 비열등성은 확인되어 있지 않다.**
-
-독립 세트 — 구성 선택에 사용하지 않은 holdout 태스크당 500문항:
-
-| 지표 | Δ (pt) |
-|---|---:|
-| JSQuAD EM | +0.20 |
-| JSQuAD char-F1 | −0.18 |
-| JNLI acc | −1.60 |
-| JCommonsenseQA acc | −0.20 |
-
-JMMLU는 대상 외: 구조상 train/valid 구별이 없어 holdout을 만들 수 없다.
-
-### 메모리 예약
-
-DGX Spark는 통합 메모리로, GPU와 OS가 같은 128 GB를 나눠 쓴다.
-`--gpu-memory-utilization`은 기동 시 vLLM이 선점하는 비율로,
-부하와 무관하게 확보된 채로 남는다. 기본값은 **0.5**(`gemma4.env`의
-`GEMMA4_GPU_UTIL`): 기동 로그에 `GPU KV cache size: 607,998 tokens`라고
-나오고 OS 측 여유는 51-52 GB가 남는다. util을 올리면 KV 풀은 늘지만
-OS 측이 깎인다 — 0.9에서는 OS 여유가 수 GB까지 떨어져 같은 노드의
-프로세스가 죽었다(실측).
-
-| GPU_UTIL | KV 토큰 | 32K 환산 | OS 측 여유 |
-|---|---:|---:|---:|
-| 0.5(기본) | 607,998 | 약 18.6본 | 51-52 GB |
-| 0.6 | 837,957 | 약 25.6본 | 40 GB |
-| 0.7 | 1,011,401 | 약 30.9본 | 27 GB |
-| 0.9 | — | — | 수 GB. 같은 노드의 프로세스가 죽었다 |
-
-위의 속도・품질 표는 util 0.6으로 측정한 값. 기본값 0.5와 모순되지
-않는 근거는 2개: 단발 속도는 KV 풀 크기에 의존하지 않아 0.5에서도
-104.5 tok/s를 실측(오차 범위). C=32의 창이 필요로 하는 KV는 약 5만
-토큰으로 0.5의 607,998에 대해 충분.
-
-### 크기
-
-배포물은 약 19 GB. GPU에 올라가는 양은 기동 로그 실측으로 17.08 GiB
-(`Model loading took`).
-
-## 다른 GPU에서 돌리는 경우(시산)
-
-이 절은 전부 시산이며, 실측은 DGX Spark만. NVFP4 연산에는
-Blackwell 세대의 GPU가 필요하다.
-
-- 디스크리트 GPU는 VRAM을 OS와 공유하지 않으므로 util은
-  0.85〜0.9까지 올려도 된다
-- 내역의 기준: 가중치 17.08 GiB(기동 로그 실측) + MTP 드래프트 약 0.8 GB + KV 풀
-- 64 GB GPU: `--max-model-len 32768`로 KV 약 35 GB(32K 창
-  약 20본)이 기준
-- 32 GB GPU: `--max-model-len 8192`・`--max-num-seqs 8`에서 시작
-  — `gemma4.small.env`가 그대로 그 값을 가진다
-
-`serve.sh`를 쓰지 않는 경우, 조립되는 커맨드는 다음과 같다
-(gemma4.small.env 설정. `/checkpoint`・`/checkpoint-mtp`는
-마운트된 가중치와 드래프트의 경로):
+- 이미지: `tenhkspark/gemma-4-v2:v2`
+- Env 파일: `gemma4-v2.env`와 프로파일 하나, `gemma4-v2-balanced.env` (기본값) 또는 `gemma4-v2-prefill-first.env` (긴 프롬프트)
+- 제공 스크립트: `gemma4-v2-serve.sh`, 채팅 템플릿 `chat_template.jinja`
+- 라우터 (선택 사항, 여러 노드): `tools/router.py`와 `tools/router-v2.tsv`
 
 ```bash
-vllm serve /checkpoint --served-model-name gemma4 --host 0.0.0.0 --port 8890 --tensor-parallel-size 1 --max-model-len 8192 --max-num-seqs 8 --max-num-batched-tokens 8192 --enable-chunked-prefill --no-enable-prefix-caching --language-model-only --trust-remote-code --reasoning-parser gemma4 --tool-call-parser gemma4 --enable-auto-tool-choice --limit-mm-per-prompt '{"image":0,"audio":0}' --gpu-memory-utilization 0.85 --kv-cache-dtype fp8 --speculative-config '{"method":"mtp","model":"/checkpoint-mtp","num_speculative_tokens":8}'
+docker pull tenhkspark/gemma-4-v2:v2
+cp gemma4-v2*.env gemma4-v2-serve.sh chat_template.jinja ~/gemma4-spark/
+cd ~/gemma4-spark && ./gemma4-v2-serve.sh --env gemma4-v2-balanced.env up
+./gemma4-v2-serve.sh smoke
 ```
 
-## 제한・주의
+서버는 포트 8890 (`/v1/chat/completions`)에서 요청을 수신합니다. 라우터: `python3 tools/router.py --config tools/router-v2.tsv --listen 0.0.0.0:8899`; `router-v2.tsv`의 균형 제한은 32,768 토큰입니다.
 
-- 장문은 prefill 율속으로 떨어진다. 나눠서 보낼 것(위의 표).
-- 온도 0에서도 기체마다 생성문이 미묘하게 갈라진다(가중치는 동일.
-  갈라지는 쪽은 서빙 측).
-- 실무 태스크 평가에서 db(SQL에서 테이블명 추출)는 불필요한 테이블을
-  나열하는 경향이 있다. BF16(양자화 없음)에서도 같은 경향이 나온다
-  (C=1로 BF16 20/30・이 레시피 24/30)므로 양자화 유래가 아니다.
-- 이 API에는 인증이 없다. 서버는 모든 인터페이스에서 응답하므로,
-  신뢰할 수 있는 네트워크에서 돌리거나 localhost에 둘 것.
+## 투기적 디코딩 (MTP) 설정
 
-## 왜 lm_head인가
+`GEMMA4_MTP=2`가 기본값이며, 측정한 모든 작업 부하에서 가장 빠르거나 그에 가까웠습니다 (위 표 참조).
 
-decode가 1 스텝 34.775 ms 걸리고 있어서, torch profiler로 내역을 뽑아 보았다.
+`GEMMA4_MTP=8` (`gemma4-v2-balanced-mtp8.env`)은 구조화된 추출, 템플릿 채우기, 로그 요약에 적합합니다. 서로 다른 프롬프트 270개에서 단일 스트림은 약 100 tok/s, 동시성 32에서는 934 tok/s였습니다. 자유 형식 채팅에서는 더 느리고 (단일 스트림 48.9 대 62.9 tok/s), 코딩 프롬프트에서는 동시성 8과 32에서 8-10% 낮습니다. 작업 부하별로 선택하세요. 환경 변수 하나로 설정할 수 있습니다. 균형 프로파일에서는 `GEMMA4_PREFIX_CACHE=0`을 유지하세요.
 
-| 커널 | ms/step | 비율 |
-|---|---:|---:|
-| cuBLAS BF16 GEMV | 28.64 | 82.5% |
-| MoE(라우팅+expert GEMM) | 4.75 | 13.6% |
-| attention(Triton) | 0.643 | 1.85% |
+## 간결한 답변 얻기
 
-상위 15 커널로 99.1%를 설명할 수 있다. 시간의 대부분은 BF16 그대로 남아 있는
-선형층의 읽기에 쓰이고 있었다.
+Gemma 4는 기본적으로 답변이 깁니다. 요청 측 설정 네 가지로 답변을 짧게 할 수 있습니다.
 
-NVIDIA 공식의 NVFP4는 routed expert만 양자화하고 있으며, config.json의
-`quantization_config.ignore`에는 93 엔트리(전체 30층의 `mlp*` / `router*` /
-`self_attn*`와 `lm_head`, vision 계열)가 나열되어 있다. safetensors의 헤더를 집계하면,
-매 토큰마다 읽는 BF16은 5.35 GB:
+- 짧은 시스템 프롬프트. 예: `Answer in 3 sentences, no preamble.`
+- `chat_template_kwargs: {"enable_thinking": false}`를 설정하면 해당 요청에서 사고 기능이 꺼집니다.
+- `max_tokens`는 답변 길이를 제한합니다.
+- 사고 기능이 켜져 있을 때는 `reasoning_effort`와 `thinking_token_budget`으로 사고 길이를 짧게 유지할 수 있습니다.
 
-| 부위 | GB |
-|---|---:|
-| QKVO projection | 2.51 |
-| lm_head(tied embedding) | 1.48 |
-| shared-expert dense MLP | 1.34 |
-| router·norm | 0.02 |
+```bash
+curl -s http://localhost:8890/v1/chat/completions -H 'content-type: application/json' -d '{
+  "model": "gemma4",
+  "messages": [
+    {"role": "system", "content": "Answer in 2 sentences, no preamble."},
+    {"role": "user", "content": "Why is the sky blue?"}],
+  "max_tokens": 300,
+  "chat_template_kwargs": {"enable_thinking": false}
+}'
+```
 
-5.35 GB ÷ 28.64 ms = 실효 186.8 GB/s. DGX Spark의 273 GB/s에 대해 68.4%로,
-커널의 효율이 아니라 읽는 양이 발목을 잡고 있다.
+이 요청으로 테스트한 답변은 47 tokens였습니다.
 
-이 중 lm_head는 `tie_word_embeddings`를 떼어 별도 텐서로 만들면,
-단독으로 NVFP4로 할 수 있다. 결과는 같은 γ8에서 100.5 → **109.7 tok/s**(+9.2%),
-투기 없음끼리 비교하면 28.8 → **35.8 tok/s**(+24.3%).
+## 품질
 
-효과가 없었던 시도도 기록해 둔다.
+`GEMMA4_MTP=2` 균형 설정에서 v1과의 실제 사용 비교는 샘플 모드를 통과했고, 125개 질문 벤치마크는 동등한 결과였습니다 (82.4% 대 82.4%). 탐욕 모드 비교 한 건은 노이즈 범위 안이었지만 더 엄격한 내부 기준에는 미치지 못했습니다. `GEMMA4_MTP=8`에서는 실제 사용 두 모드 모두 통과했고 벤치마크는 83.2% 대 84.0%였습니다.
 
-- MoE 커널을 MARLIN으로 강제해도, 비투기 단발은 변하지 않았다
-- NVFP4 체크포인트에 `--quantization fp8`을 겹쳐 지정해도, 기동 로그는
-  `quantization=modelopt_fp4` 그대로이며 지정은 무시된다
-- vision tower(0.59 GB)는 text-only의 decode에서는 읽히지 않는다.
-  `--language-model-only`를 붙여도 속도는 변하지 않았다
-
-## 다음 과제
-
-### 전 계층 4bit ＋ 일본어 캘리브레이션(시도했지만 채택하지 않음)
-
-본 레시피의 가중치는 attention과 공유 MLP를 BF16 그대로 남겨 두었다. 그 부분까지
-포함해 모두 NVFP4로 바꾸고, 일본어 캘리브레이션 데이터 365건과 오차 보상이 붙은 양자화(GPTQ 계열)로
-다시 만든 판을 실측했다.
-
-| 지표 | 본 레시피 | 전 계층 4bit 판 |
-|---|---:|---:|
-| 단발 tok/s | 109.7 | **122.3(+11.5%)** |
-| 병렬 C=32 합계 tok/s | 1,080.8 | **586.5(약 절반)** |
-| JNLI의 페어 차 | −1.23 / −1.48 pt | −1.64 pt |
-| 5개 지표의 점추정 | 모두 −2pt 이내 | 모두 −2pt 이내 |
-
-**품질은 유지했지만 병렬에서 크게 떨어졌기 때문에 채택하지 않았다.** 단발에서는 빠르고,
-일본어 생성도 무너지지 않는다.
-
-### attention을 FP8로 한 버전(품질을 최우선으로 할 경우)
-
-전층 4bit에서 JNLI가 다소 떨어졌기 때문에, attention(QKVO)만 FP8로 되돌리고,
-공유 MLP・routed expert・lm_head를 NVFP4로 한 버전도 만들었다. 캘리브레이션 데이터는 같은
-일본어 365건.
-
-| 지표 | 본 레시피 | attention FP8 버전 |
-|---|---:|---:|
-| 단발 tok/s | 109.7 | **117.5(+7.1%)** |
-| 병렬 C=32 합계 tok/s | 1,080.8 | 약 절반 |
-| JNLI의 페어 차(valid) | −1.23 / −1.48 pt | **−0.74 pt** |
-| JNLI의 페어 차(독립 세트) | −1.60 pt | **−1.20 pt** |
-| 5개 지표의 점추정 | 모두 −2pt 이내 | 모두 −2pt 이내 |
-
-**단발과 품질 모두 본 레시피를 웃돌지만, 병렬이 약 절반이므로 채택하지 않았다.** 배치 용도에서는
-합계 처리량이 중요하기 때문이다. 단발만 사용하고 품질을 최우선으로 하는 경우에는 이쪽이 더 나을
-가능성이 있다. 가중치는 공개하지 않았다(만드는 방법은 본문의 절차와 동일하며, attention만
-FP8 target으로 한다).
-
-attention을 높은 정밀도로 되돌리면 품질이 돌아오고 단발이 약간 떨어진다는 트레이드오프는
-전층 4bit 버전과의 비교에서도 나타나 있다(JNLI −1.64 → −0.74 pt, 단발 122.3 → 117.5).
-
-## 라이선스
-
-Apache License 2.0 — `LICENSE`와 `NOTICE`를 참조. 모델 본체의
-이용에는 Gemma Terms of Use와 금지 용도 정책이 계속 적용된다.
-
-
-## 사사
-
-Google(Gemma 4 본체와 MTP 드래프트), NVIDIA(NVFP4 체크포인트와
-DGX Spark), vLLM(서빙 엔진)에 감사한다.
+라이선스: `LICENSE`와 `NOTICE`를 참조하세요. 모델 사용에는 Gemma 이용 약관이 계속 적용됩니다.

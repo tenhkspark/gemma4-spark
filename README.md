@@ -1,6 +1,6 @@
 # Gemma 4 26B-A4B on DGX Spark, v2
 
-Serving recipe for the NVFP4 build of Gemma 4 26B-A4B on a single DGX Spark (DGX Spark). The model weights are unchanged from v1. v1 stays available: git tag `v1` and image `tenhkspark/gemma-4-v2:v2`.
+Serving setup for the NVFP4 build of Gemma 4 26B-A4B on a single DGX Spark (DGX Spark). The model weights are unchanged from v1. v1 stays available: git tag `v1` and image `tenhkspark/gemma-4-v2:v2`.
 
 ## v1 to v2
 
@@ -22,7 +22,7 @@ Time to first token at 2k / 8k / 30k prompts is the same as v1 in the balanced p
 
 ## What to change when upgrading
 
-- Image: `tenhkspark/gemma-4-v2:v2`
+- Image: [tenhkspark/gemma-4-v2:v2](https://hub.docker.com/r/tenhkspark/gemma-4-v2:v2)
 - Env files: `gemma4-v2.env` plus one profile, `gemma4-v2-balanced.env` (default) or `gemma4-v2-prefill-first.env` (long prompts)
 - Serve script: `gemma4-v2-serve.sh`, chat template `chat_template.jinja`
 - Router (optional, several nodes): `tools/router.py` with `tools/router-v2.tsv`

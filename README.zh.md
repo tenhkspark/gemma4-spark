@@ -1,6 +1,6 @@
 # Gemma 4 26B-A4B on DGX Spark, v2
 
-适用于单台 DGX Spark�(��上 Gemma 4 26B-A4B NVFP4 版本的部署配方。模型权重与 v1 相同。v1 仍可使用：git 标签 `v1` 和镜像 `tenhkspark/gemma-4-v2:v2`。
+适用于单台 DGX Spark�(��上 Gemma 4 26B-A4B NVFP4 版本的部署配置。模型权重与 v1 相同。v1 仍可使用：git 标签 `v1` 和镜像 `tenhkspark/gemma-4-v2:v2`。
 
 ## 从 v1 升级到 v2
 
@@ -22,7 +22,7 @@
 
 ## 升级时需要更改的内容
 
-- 镜像：`tenhkspark/gemma-4-v2:v2`
+- 镜像：[tenhkspark/gemma-4-v2:v2](https://hub.docker.com/r/tenhkspark/gemma-4-v2:v2)
 - 环境文件：`gemma4-v2.env` 加一个配置文件，`gemma4-v2-balanced.env`（默认）或 `gemma4-v2-prefill-first.env`（长提示词）
 - 服务脚本：`gemma4-v2-serve.sh`，聊天模板 `chat_template.jinja`
 - 路由器（可选，多节点）：`tools/router.py` 和 `tools/router-v2.tsv`
